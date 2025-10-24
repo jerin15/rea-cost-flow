@@ -140,8 +140,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
   const calculateTotals = (item: CostSheetItem) => {
     const totalCost = (item.supplier_cost * item.qty) + (item.misc_cost || 0);
-    const reaMargin = item.rea_margin || (item.supplier_cost * 0.40);
-    const actualQuoted = item.actual_quoted || (totalCost + reaMargin);
+    const reaMargin = item.rea_margin || 0;
+    const actualQuoted = totalCost + reaMargin;
     
     return { totalCost, reaMargin, actualQuoted };
   };
@@ -263,59 +263,109 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     toast.success("Cost sheet submitted for approval!");
   };
 
-  const updateApprovalStatus = async (itemId: string, status: ApprovalStatus, remarks: string) => {
+  const approveCostSheet = async () => {
+    if (!costSheetId) return;
     setLoading(true);
 
     const { error } = await supabase
-      .from("cost_sheet_items")
-      .update({ 
-        approval_status: status,
-        admin_remarks: remarks 
-      })
-      .eq("id", itemId);
+      .from("cost_sheets")
+      .update({ status: "approved" })
+      .eq("id", costSheetId);
 
     if (error) {
-      toast.error("Failed to update approval status");
+      toast.error("Failed to approve cost sheet");
       setLoading(false);
       return;
     }
 
-    // Get estimator user ID from cost sheet
+    // Get estimator and client info
     const { data: costSheetData } = await supabase
       .from("cost_sheets")
       .select("created_by")
       .eq("id", costSheetId)
       .single();
 
-    // Get client name
     const { data: clientData } = await supabase
       .from("clients")
       .select("name")
       .eq("id", clientId)
       .single();
 
-    // Get item details
-    const item = items.find(i => i.id === itemId);
-
-    // Create notification for estimator
+    // Notify estimator
     if (costSheetData) {
       await supabase.from("notifications").insert({
         user_id: costSheetData.created_by,
-        title: status === "rejected" ? "❌ Item Rejected" : "✅ Item Approved",
-        message: `Item "${item?.item || "N/A"}" in ${clientData?.name || "client"} cost sheet has been ${status === "rejected" ? "rejected" : "approved"}. ${remarks ? `Remarks: ${remarks}` : ""}`,
-        type: status === "rejected" ? "rejection" : "approval",
+        title: "✅ Cost Sheet Approved",
+        message: `Your cost sheet for ${clientData?.name || "client"} has been approved!`,
+        type: "approval",
       });
     }
 
     setLoading(false);
-    toast.success(`Item ${status === "rejected" ? "rejected" : "approved"} successfully`);
+    toast.success("Cost sheet approved successfully!");
+    setCostSheetStatus("approved");
+    fetchCostSheetItems();
+  };
+
+  const rejectCostSheet = async () => {
+    if (!costSheetId) return;
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("cost_sheets")
+      .update({ status: "rejected" })
+      .eq("id", costSheetId);
+
+    if (error) {
+      toast.error("Failed to reject cost sheet");
+      setLoading(false);
+      return;
+    }
+
+    // Get estimator and client info
+    const { data: costSheetData } = await supabase
+      .from("cost_sheets")
+      .select("created_by")
+      .eq("id", costSheetId)
+      .single();
+
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select("name")
+      .eq("id", clientId)
+      .single();
+
+    // Notify estimator
+    if (costSheetData) {
+      await supabase.from("notifications").insert({
+        user_id: costSheetData.created_by,
+        title: "❌ Cost Sheet Rejected",
+        message: `Your cost sheet for ${clientData?.name || "client"} has been rejected. Please review and resubmit.`,
+        type: "rejection",
+      });
+    }
+
+    setLoading(false);
+    toast.success("Cost sheet rejected");
+    setCostSheetStatus("rejected");
     fetchCostSheetItems();
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-primary">Cost Sheet</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-primary">Cost Sheet</h2>
+          {costSheetStatus && costSheetStatus !== "draft" && (
+            <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+              ${costSheetStatus === "submitted" ? "bg-warning/20 text-warning-foreground" : ""}
+              ${costSheetStatus === "approved" ? "bg-success/20 text-success-foreground" : ""}
+              ${costSheetStatus === "rejected" ? "bg-destructive/20 text-destructive-foreground" : ""}
+            `}>
+              {costSheetStatus.charAt(0).toUpperCase() + costSheetStatus.slice(1)}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
             <DialogTrigger asChild>
@@ -343,7 +393,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             </DialogContent>
           </Dialog>
           
-          {userRole === "estimator" && (
+          {userRole === "estimator" && (costSheetStatus === "draft" || costSheetStatus === "rejected") && (
             <>
               <Button variant="outline" size="sm" onClick={addNewRow}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -360,6 +410,27 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 </Button>
               )}
             </>
+          )}
+          
+          {userRole === "admin" && costSheetStatus === "submitted" && (
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                onClick={approveCostSheet} 
+                disabled={loading}
+                className="bg-success hover:bg-success/90"
+              >
+                Approve Cost Sheet
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={rejectCostSheet} 
+                disabled={loading}
+              >
+                Reject Cost Sheet
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -379,9 +450,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead>Total Cost (AED)</TableHead>
               <TableHead>REA Margin (AED)</TableHead>
               <TableHead>Actual Quoted (AED)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Admin Remarks</TableHead>
-              <TableHead>Actions</TableHead>
+              {userRole === "estimator" && <TableHead>Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -398,18 +467,19 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
+                  <Textarea
                     value={item.item}
                     onChange={(e) => updateItem(index, "item", e.target.value)}
-                    disabled={userRole !== "estimator"}
-                    placeholder="Item description"
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    placeholder="Enter detailed item description..."
+                    className="min-w-[300px] min-h-[80px]"
                   />
                 </TableCell>
                 <TableCell>
                   <Select
                     value={item.supplier_id || ""}
                     onValueChange={(value) => updateItem(index, "supplier_id", value)}
-                    disabled={userRole !== "estimator"}
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
                   >
                     <SelectTrigger className="w-40 bg-popover">
                       <SelectValue placeholder="Select..." />
@@ -426,116 +496,66 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 <TableCell>
                   <Input
                     type="number"
-                    value={item.qty}
-                    onChange={(e) => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
-                    disabled={userRole !== "estimator"}
+                    value={item.qty || ""}
+                    onChange={(e) => updateItem(index, "qty", parseInt(e.target.value) || 0)}
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
                     className="w-20"
+                    placeholder="0"
                   />
                 </TableCell>
                 <TableCell>
                   <Input
                     type="number"
-                    step="0.01"
-                    value={item.supplier_cost}
-                    onChange={(e) => updateItem(index, "supplier_cost", parseFloat(e.target.value) || 0)}
-                    disabled={userRole !== "estimator"}
+                    value={item.supplier_cost || ""}
+                    onChange={(e) => updateItem(index, "supplier_cost", parseInt(e.target.value) || 0)}
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
                     className="w-28"
+                    placeholder="0"
                   />
                 </TableCell>
                 <TableCell>
                   <Input
                     type="number"
-                    step="0.01"
-                    value={item.misc_cost}
-                    onChange={(e) => updateItem(index, "misc_cost", parseFloat(e.target.value) || 0)}
-                    disabled={userRole !== "estimator"}
+                    value={item.misc_cost || ""}
+                    onChange={(e) => updateItem(index, "misc_cost", parseInt(e.target.value) || 0)}
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
                     className="w-28"
+                    placeholder="0"
                   />
                 </TableCell>
                 <TableCell>
                   <Input
                     value={item.misc_cost_type}
                     onChange={(e) => updateItem(index, "misc_cost_type", e.target.value)}
-                    disabled={userRole !== "estimator"}
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
                     placeholder="Type"
                     className="w-28"
                   />
                 </TableCell>
-                <TableCell className="font-semibold">{item.total_cost.toFixed(2)}</TableCell>
+                <TableCell className="font-semibold">{item.total_cost}</TableCell>
                 <TableCell>
                   <Input
                     type="number"
-                    step="0.01"
-                    value={item.rea_margin}
-                    onChange={(e) => updateItem(index, "rea_margin", parseFloat(e.target.value) || 0)}
-                    disabled={userRole !== "estimator"}
+                    value={item.rea_margin || ""}
+                    onChange={(e) => updateItem(index, "rea_margin", parseInt(e.target.value) || 0)}
+                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
                     className="w-28"
+                    placeholder="0"
                   />
                 </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={item.actual_quoted}
-                    onChange={(e) => updateItem(index, "actual_quoted", parseFloat(e.target.value) || 0)}
-                    disabled={userRole !== "estimator"}
-                    className="w-28"
-                  />
-                </TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium
-                    ${item.approval_status === "pending" ? "bg-warning/20 text-warning-foreground" : ""}
-                    ${item.approval_status.includes("approved") ? "bg-success/20 text-success-foreground" : ""}
-                    ${item.approval_status === "rejected" ? "bg-destructive/20 text-destructive-foreground" : ""}
-                  `}>
-                    {item.approval_status}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {userRole === "admin" ? (
-                    <Textarea
-                      value={item.admin_remarks}
-                      onChange={(e) => updateItem(index, "admin_remarks", e.target.value)}
-                      placeholder="Add remarks..."
-                      className="w-48"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground">{item.admin_remarks || "—"}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {userRole === "estimator" ? (
+                <TableCell className="font-semibold">{item.actual_quoted}</TableCell>
+                {userRole === "estimator" && (
+                  <TableCell>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => deleteItem(index)}
-                      disabled={costSheetStatus !== "draft"}
+                      disabled={costSheetStatus !== "draft" && costSheetStatus !== "rejected"}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
-                  ) : userRole === "admin" && item.id && costSheetStatus === "submitted" ? (
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateApprovalStatus(item.id!, "approved_both", item.admin_remarks)}
-                        disabled={loading}
-                        className="bg-success/10 hover:bg-success/20 text-success-foreground"
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateApprovalStatus(item.id!, "rejected", item.admin_remarks)}
-                        disabled={loading}
-                        className="bg-destructive/10 hover:bg-destructive/20 text-destructive-foreground"
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  ) : null}
-                </TableCell>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
