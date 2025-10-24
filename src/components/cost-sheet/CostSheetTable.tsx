@@ -47,6 +47,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
   const [newSupplierName, setNewSupplierName] = useState("");
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [costSheetId, setCostSheetId] = useState<string | null>(null);
+  const [costSheetStatus, setCostSheetStatus] = useState<string>("draft");
 
   useEffect(() => {
     if (clientId) {
@@ -72,13 +74,25 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .from("cost_sheet_items")
       .select(`
         *,
-        cost_sheets!inner(client_id)
+        cost_sheets!inner(client_id, id, status)
       `)
       .eq("cost_sheets.client_id", clientId)
       .order("item_number");
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       setItems(data);
+      setCostSheetId(data[0].cost_sheet_id);
+      
+      // Get cost sheet status
+      const { data: sheetData } = await supabase
+        .from("cost_sheets")
+        .select("status")
+        .eq("id", data[0].cost_sheet_id)
+        .single();
+      
+      if (sheetData) {
+        setCostSheetStatus(sheetData.status);
+      }
     }
   };
 
@@ -195,6 +209,106 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     }
 
     toast.success("Cost sheet saved successfully");
+    setCostSheetId(costSheet.id);
+    fetchCostSheetItems();
+  };
+
+  const submitForApproval = async () => {
+    if (!costSheetId) {
+      toast.error("Please save the cost sheet first");
+      return;
+    }
+
+    setLoading(true);
+
+    // Update cost sheet status
+    const { error: updateError } = await supabase
+      .from("cost_sheets")
+      .update({ status: "submitted", submitted_at: new Date().toISOString() })
+      .eq("id", costSheetId);
+
+    if (updateError) {
+      toast.error("Failed to submit cost sheet");
+      setLoading(false);
+      return;
+    }
+
+    // Get admin users
+    const { data: adminUsers } = await supabase
+      .from("user_roles")
+      .select("user_id, email")
+      .eq("role", "admin");
+
+    // Get client name
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select("name")
+      .eq("id", clientId)
+      .single();
+
+    // Create notifications for admins
+    if (adminUsers && adminUsers.length > 0) {
+      const notifications = adminUsers.map(admin => ({
+        user_id: admin.user_id,
+        title: "📋 New Cost Sheet Awaiting Approval",
+        message: `A new cost sheet for ${clientData?.name || "client"} has been submitted and requires your approval.`,
+        type: "approval_request",
+      }));
+
+      await supabase.from("notifications").insert(notifications);
+    }
+
+    setLoading(false);
+    setCostSheetStatus("submitted");
+    toast.success("Cost sheet submitted for approval!");
+  };
+
+  const updateApprovalStatus = async (itemId: string, status: ApprovalStatus, remarks: string) => {
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("cost_sheet_items")
+      .update({ 
+        approval_status: status,
+        admin_remarks: remarks 
+      })
+      .eq("id", itemId);
+
+    if (error) {
+      toast.error("Failed to update approval status");
+      setLoading(false);
+      return;
+    }
+
+    // Get estimator user ID from cost sheet
+    const { data: costSheetData } = await supabase
+      .from("cost_sheets")
+      .select("created_by")
+      .eq("id", costSheetId)
+      .single();
+
+    // Get client name
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select("name")
+      .eq("id", clientId)
+      .single();
+
+    // Get item details
+    const item = items.find(i => i.id === itemId);
+
+    // Create notification for estimator
+    if (costSheetData) {
+      await supabase.from("notifications").insert({
+        user_id: costSheetData.created_by,
+        title: status === "rejected" ? "❌ Item Rejected" : "✅ Item Approved",
+        message: `Item "${item?.item || "N/A"}" in ${clientData?.name || "client"} cost sheet has been ${status === "rejected" ? "rejected" : "approved"}. ${remarks ? `Remarks: ${remarks}` : ""}`,
+        type: status === "rejected" ? "rejection" : "approval",
+      });
+    }
+
+    setLoading(false);
+    toast.success(`Item ${status === "rejected" ? "rejected" : "approved"} successfully`);
     fetchCostSheetItems();
   };
 
@@ -235,10 +349,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 <Plus className="mr-2 h-4 w-4" />
                 Add Row
               </Button>
-              <Button size="sm" onClick={saveCostSheet} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={saveCostSheet} disabled={loading}>
                 <Save className="mr-2 h-4 w-4" />
                 {loading ? "Saving..." : "Save"}
               </Button>
+              {costSheetId && costSheetStatus === "draft" && (
+                <Button size="sm" onClick={submitForApproval} disabled={loading}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Submit for Approval
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -261,7 +381,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead>Actual Quoted (AED)</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Admin Remarks</TableHead>
-              {userRole === "estimator" && <TableHead>Actions</TableHead>}
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -383,17 +503,39 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     <span className="text-sm text-muted-foreground">{item.admin_remarks || "—"}</span>
                   )}
                 </TableCell>
-                {userRole === "estimator" && (
-                  <TableCell>
+                <TableCell>
+                  {userRole === "estimator" ? (
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => deleteItem(index)}
+                      disabled={costSheetStatus !== "draft"}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
-                  </TableCell>
-                )}
+                  ) : userRole === "admin" && item.id && costSheetStatus === "submitted" ? (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateApprovalStatus(item.id!, "approved_both", item.admin_remarks)}
+                        disabled={loading}
+                        className="bg-success/10 hover:bg-success/20 text-success-foreground"
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateApprovalStatus(item.id!, "rejected", item.admin_remarks)}
+                        disabled={loading}
+                        className="bg-destructive/10 hover:bg-destructive/20 text-destructive-foreground"
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  ) : null}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

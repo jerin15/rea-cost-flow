@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
-import { Bell, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import reaLogo from "@/assets/rea-logo.jpg";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -25,9 +26,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationBell />
             <div className="flex items-center gap-2 px-3 py-2 text-sm">
               <span className="text-muted-foreground">{user?.email}</span>
             </div>
