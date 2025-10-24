@@ -77,6 +77,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         cost_sheets!inner(client_id, id, status)
       `)
       .eq("cost_sheets.client_id", clientId)
+      .neq("cost_sheets.status", "approved")
       .order("item_number");
 
     if (!error && data && data.length > 0) {
@@ -93,6 +94,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       if (sheetData) {
         setCostSheetStatus(sheetData.status);
       }
+    } else {
+      // No existing cost sheet, start fresh
+      setItems([]);
+      setCostSheetId(null);
+      setCostSheetStatus("draft");
     }
   };
 
@@ -302,9 +308,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     }
 
     setLoading(false);
-    toast.success("Cost sheet approved successfully!");
-    setCostSheetStatus("approved");
-    fetchCostSheetItems();
+    toast.success("Cost sheet approved successfully! It has been moved to Approved Cost Sheets.");
+    
+    // Clear current view
+    setItems([]);
+    setCostSheetId(null);
+    setCostSheetStatus("draft");
   };
 
   const rejectCostSheet = async () => {

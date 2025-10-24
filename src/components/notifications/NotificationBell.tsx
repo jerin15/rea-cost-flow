@@ -37,13 +37,18 @@ export const NotificationBell = () => {
         },
         (payload) => {
           const newNotification = payload.new as Notification;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
           
-          // Show toast for new notification
-          toast.info(newNotification.title, {
+          // Only process if notification is for current user
+          fetchNotifications();
+          
+          // Play alert sound
+          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE');
+          audio.play().catch(() => {}); // Ignore if autoplay is blocked
+          
+          // Show loud toast notification
+          toast.error(newNotification.title, {
             description: newNotification.message,
-            duration: 5000,
+            duration: 10000,
           });
         }
       )
