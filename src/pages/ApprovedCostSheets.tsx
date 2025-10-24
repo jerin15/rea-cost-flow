@@ -49,54 +49,72 @@ const ApprovedCostSheets = () => {
   const fetchApprovedCostSheets = async () => {
     setLoading(true);
     
-    const { data, error } = await supabase
-      .from("cost_sheets")
+    // Get all approved items grouped by client
+    const { data: approvedItems, error } = await supabase
+      .from("cost_sheet_items")
       .select(`
         id,
-        client_id,
-        created_at,
-        submitted_at,
-        clients!inner(name)
+        date,
+        item,
+        supplier_id,
+        qty,
+        supplier_cost,
+        misc_cost,
+        total_cost,
+        rea_margin,
+        actual_quoted,
+        item_number,
+        cost_sheets!inner(
+          id,
+          client_id,
+          submitted_at,
+          clients!inner(name)
+        ),
+        suppliers(name)
       `)
-      .eq("status", "approved")
-      .order("submitted_at", { ascending: false });
+      .eq("approval_status", "approved_both")
+      .order("cost_sheets.submitted_at", { ascending: false });
 
-    if (!error && data) {
-      const sheetsWithDetails = await Promise.all(
-        data.map(async (sheet) => {
-          const { data: items } = await supabase
-            .from("cost_sheet_items")
-            .select("total_cost")
-            .eq("cost_sheet_id", sheet.id);
-
-          const totalCost = items?.reduce((sum, item) => sum + Number(item.total_cost), 0) || 0;
-          
-          return {
-            id: sheet.id,
-            client_id: sheet.client_id,
-            client_name: sheet.clients.name,
-            created_at: sheet.created_at,
-            submitted_at: sheet.submitted_at,
-            total_items: items?.length || 0,
-            total_cost: totalCost,
+    if (!error && approvedItems) {
+      // Group items by client
+      const groupedByClient = approvedItems.reduce((acc, item) => {
+        const clientId = item.cost_sheets.client_id;
+        const clientName = item.cost_sheets.clients.name;
+        
+        if (!acc[clientId]) {
+          acc[clientId] = {
+            id: clientId,
+            client_id: clientId,
+            client_name: clientName,
+            created_at: item.cost_sheets.submitted_at,
+            submitted_at: item.cost_sheets.submitted_at,
+            total_items: 0,
+            total_cost: 0,
           };
-        })
-      );
+        }
+        
+        acc[clientId].total_items += 1;
+        acc[clientId].total_cost += Number(item.total_cost);
+        
+        return acc;
+      }, {} as Record<string, ApprovedCostSheet>);
 
-      setCostSheets(sheetsWithDetails);
+      setCostSheets(Object.values(groupedByClient));
     }
     
     setLoading(false);
   };
 
-  const fetchCostSheetDetails = async (sheetId: string) => {
+  const fetchCostSheetDetails = async (clientId: string) => {
     const { data, error } = await supabase
       .from("cost_sheet_items")
       .select(`
         *,
-        suppliers(name)
+        suppliers(name),
+        cost_sheets!inner(client_id)
       `)
-      .eq("cost_sheet_id", sheetId)
+      .eq("cost_sheets.client_id", clientId)
+      .eq("approval_status", "approved_both")
       .order("item_number");
 
     if (!error && data) {
@@ -152,7 +170,7 @@ const ApprovedCostSheets = () => {
                       </TableCell>
                       <TableCell>
                         <button
-                          onClick={() => setSelectedSheet(sheet.id)}
+                          onClick={() => setSelectedSheet(sheet.client_id)}
                           className="text-primary hover:underline"
                         >
                           View Details
@@ -182,7 +200,7 @@ const ApprovedCostSheets = () => {
                       <TableHead>#</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Item Description</TableHead>
-                      <TableHead>Supplier</TableHead>
+                      <TableHead className="font-semibold text-success">Approved Supplier</TableHead>
                       <TableHead>Qty</TableHead>
                       <TableHead>Supplier Cost</TableHead>
                       <TableHead>Misc Cost</TableHead>
@@ -197,7 +215,7 @@ const ApprovedCostSheets = () => {
                         <TableCell>{item.item_number}</TableCell>
                         <TableCell>{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
                         <TableCell className="max-w-[300px] whitespace-normal">{item.item}</TableCell>
-                        <TableCell>{item.supplier_name}</TableCell>
+                        <TableCell className="font-medium text-success">{item.supplier_name}</TableCell>
                         <TableCell>{item.qty}</TableCell>
                         <TableCell>₹{item.supplier_cost.toLocaleString()}</TableCell>
                         <TableCell>₹{item.misc_cost.toLocaleString()}</TableCell>

@@ -77,7 +77,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         cost_sheets!inner(client_id, id, status)
       `)
       .eq("cost_sheets.client_id", clientId)
-      .neq("cost_sheets.status", "approved")
+      .neq("approval_status", "approved_both")
       .order("item_number");
 
     if (!error && data && data.length > 0) {
@@ -165,9 +165,79 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setItems(updatedItems);
   };
 
-  const deleteItem = (index: number) => {
+  const deleteItem = async (index: number) => {
+    const item = items[index];
+    
+    if (item.id) {
+      // Delete from database
+      const { error } = await supabase
+        .from("cost_sheet_items")
+        .delete()
+        .eq("id", item.id);
+      
+      if (error) {
+        toast.error("Failed to delete item");
+        return;
+      }
+      toast.success("Item deleted successfully");
+    }
+    
     const updatedItems = items.filter((_, i) => i !== index);
     setItems(updatedItems);
+  };
+
+  const deleteSupplier = async (supplierId: string) => {
+    const { error } = await supabase
+      .from("suppliers")
+      .delete()
+      .eq("id", supplierId);
+    
+    if (error) {
+      toast.error("Failed to delete supplier");
+      return;
+    }
+    
+    toast.success("Supplier deleted successfully");
+    fetchSuppliers();
+  };
+
+  const deleteCostSheet = async () => {
+    if (!costSheetId) {
+      toast.error("No cost sheet to delete");
+      return;
+    }
+    
+    setLoading(true);
+    
+    // Delete cost sheet items first
+    const { error: itemsError } = await supabase
+      .from("cost_sheet_items")
+      .delete()
+      .eq("cost_sheet_id", costSheetId);
+    
+    if (itemsError) {
+      toast.error("Failed to delete cost sheet items");
+      setLoading(false);
+      return;
+    }
+    
+    // Delete cost sheet
+    const { error: sheetError } = await supabase
+      .from("cost_sheets")
+      .delete()
+      .eq("id", costSheetId);
+    
+    if (sheetError) {
+      toast.error("Failed to delete cost sheet");
+      setLoading(false);
+      return;
+    }
+    
+    toast.success("Cost sheet deleted successfully");
+    setLoading(false);
+    setItems([]);
+    setCostSheetId(null);
+    setCostSheetStatus("draft");
   };
 
   const saveCostSheet = async () => {
@@ -269,17 +339,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     toast.success("Cost sheet submitted for approval!");
   };
 
-  const approveCostSheet = async () => {
-    if (!costSheetId) return;
+  const approveItem = async (itemId: string) => {
     setLoading(true);
 
     const { error } = await supabase
-      .from("cost_sheets")
-      .update({ status: "approved" })
-      .eq("id", costSheetId);
+      .from("cost_sheet_items")
+      .update({ approval_status: "approved_both" })
+      .eq("id", itemId);
 
     if (error) {
-      toast.error("Failed to approve cost sheet");
+      toast.error("Failed to approve item");
       setLoading(false);
       return;
     }
@@ -301,32 +370,27 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     if (costSheetData) {
       await supabase.from("notifications").insert({
         user_id: costSheetData.created_by,
-        title: "✅ Cost Sheet Approved",
-        message: `Your cost sheet for ${clientData?.name || "client"} has been approved!`,
+        title: "✅ Item Approved",
+        message: `An item from your cost sheet for ${clientData?.name || "client"} has been approved!`,
         type: "approval",
       });
     }
 
     setLoading(false);
-    toast.success("Cost sheet approved successfully! It has been moved to Approved Cost Sheets.");
-    
-    // Clear current view
-    setItems([]);
-    setCostSheetId(null);
-    setCostSheetStatus("draft");
+    toast.success("Item approved successfully!");
+    fetchCostSheetItems();
   };
 
-  const rejectCostSheet = async () => {
-    if (!costSheetId) return;
+  const rejectItem = async (itemId: string) => {
     setLoading(true);
 
     const { error } = await supabase
-      .from("cost_sheets")
-      .update({ status: "rejected" })
-      .eq("id", costSheetId);
+      .from("cost_sheet_items")
+      .update({ approval_status: "rejected" })
+      .eq("id", itemId);
 
     if (error) {
-      toast.error("Failed to reject cost sheet");
+      toast.error("Failed to reject item");
       setLoading(false);
       return;
     }
@@ -348,17 +412,17 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     if (costSheetData) {
       await supabase.from("notifications").insert({
         user_id: costSheetData.created_by,
-        title: "❌ Cost Sheet Rejected",
-        message: `Your cost sheet for ${clientData?.name || "client"} has been rejected. Please review and resubmit.`,
+        title: "❌ Item Rejected",
+        message: `An item from your cost sheet for ${clientData?.name || "client"} has been rejected.`,
         type: "rejection",
       });
     }
 
     setLoading(false);
-    toast.success("Cost sheet rejected");
-    setCostSheetStatus("rejected");
+    toast.success("Item rejected");
     fetchCostSheetItems();
   };
+
 
   return (
     <div className="space-y-4">
@@ -418,28 +482,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   Submit for Approval
                 </Button>
               )}
+              {costSheetId && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={deleteCostSheet} 
+                  disabled={loading}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Cost Sheet
+                </Button>
+              )}
             </>
-          )}
-          
-          {userRole === "admin" && costSheetStatus === "submitted" && (
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                onClick={approveCostSheet} 
-                disabled={loading}
-                className="bg-success hover:bg-success/90"
-              >
-                Approve Cost Sheet
-              </Button>
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                onClick={rejectCostSheet} 
-                disabled={loading}
-              >
-                Reject Cost Sheet
-              </Button>
-            </div>
           )}
         </div>
       </div>
@@ -459,7 +513,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead>Total Cost (AED)</TableHead>
               <TableHead>REA Margin (AED)</TableHead>
               <TableHead>Actual Quoted (AED)</TableHead>
-              {userRole === "estimator" && <TableHead>Actions</TableHead>}
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -553,18 +608,50 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   />
                 </TableCell>
                 <TableCell className="font-semibold">{item.actual_quoted}</TableCell>
-                {userRole === "estimator" && (
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteItem(index)}
-                      disabled={costSheetStatus !== "draft" && costSheetStatus !== "rejected"}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                )}
+                <TableCell>
+                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium
+                    ${item.approval_status === "pending" ? "bg-warning/20 text-warning-foreground" : ""}
+                    ${item.approval_status === "approved_both" ? "bg-success/20 text-success-foreground" : ""}
+                    ${item.approval_status === "rejected" ? "bg-destructive/20 text-destructive-foreground" : ""}
+                  `}>
+                    {item.approval_status === "approved_both" ? "Approved" : 
+                     item.approval_status === "rejected" ? "Rejected" : "Pending"}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    {userRole === "estimator" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteItem(index)}
+                        disabled={costSheetStatus !== "draft" && costSheetStatus !== "rejected"}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                    {userRole === "admin" && costSheetStatus === "submitted" && item.approval_status === "pending" && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => item.id && approveItem(item.id)}
+                          disabled={loading}
+                          className="bg-success hover:bg-success/90"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => item.id && rejectItem(item.id)}
+                          disabled={loading}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
