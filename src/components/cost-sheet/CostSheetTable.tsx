@@ -326,44 +326,81 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
     setLoading(true);
 
-    // Create or get cost sheet
-    const { data: userData } = await supabase.auth.getUser();
-    
-    const { data: costSheet, error: sheetError } = await supabase
-      .from("cost_sheets")
-      .insert([{
-        client_id: clientId,
-        created_by: userData.user?.id,
-        status: "draft"
-      }])
-      .select()
-      .single();
+    let sheetId = costSheetId;
 
-    if (sheetError) {
-      toast.error("Failed to create cost sheet");
-      setLoading(false);
-      return;
+    // Create cost sheet only if it doesn't exist
+    if (!sheetId) {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      const { data: costSheet, error: sheetError } = await supabase
+        .from("cost_sheets")
+        .insert([{
+          client_id: clientId,
+          created_by: userData.user?.id,
+          status: "draft"
+        }])
+        .select()
+        .single();
+
+      if (sheetError) {
+        toast.error("Failed to create cost sheet");
+        setLoading(false);
+        return;
+      }
+
+      sheetId = costSheet.id;
+      setCostSheetId(sheetId);
     }
 
-    // Insert items
-    const itemsToInsert = items.map(item => ({
-      ...item,
-      cost_sheet_id: costSheet.id,
-    }));
+    // Separate items with IDs (existing) from new items (no ID)
+    const existingItems = items.filter(item => item.id);
+    const newItems = items.filter(item => !item.id);
 
-    const { error: itemsError } = await supabase
-      .from("cost_sheet_items")
-      .insert(itemsToInsert);
+    // Update existing items
+    if (existingItems.length > 0) {
+      for (const item of existingItems) {
+        const { error } = await supabase
+          .from("cost_sheet_items")
+          .update({
+            date: item.date,
+            item: item.item,
+            supplier_id: item.supplier_id,
+            qty: item.qty,
+            supplier_cost: item.supplier_cost,
+            misc_cost: item.misc_cost,
+            misc_cost_type: item.misc_cost_type,
+            total_cost: item.total_cost,
+            rea_margin: item.rea_margin,
+            actual_quoted: item.actual_quoted,
+          })
+          .eq("id", item.id);
+
+        if (error) {
+          console.error("Failed to update item:", error);
+        }
+      }
+    }
+
+    // Insert new items
+    if (newItems.length > 0) {
+      const itemsToInsert = newItems.map(item => ({
+        ...item,
+        cost_sheet_id: sheetId,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("cost_sheet_items")
+        .insert(itemsToInsert);
+
+      if (itemsError) {
+        toast.error("Failed to save new items");
+        setLoading(false);
+        return;
+      }
+    }
 
     setLoading(false);
-
-    if (itemsError) {
-      toast.error("Failed to save cost sheet items");
-      return;
-    }
-
     toast.success("Cost sheet saved successfully");
-    setCostSheetId(costSheet.id);
     fetchCostSheetItems();
   };
 
