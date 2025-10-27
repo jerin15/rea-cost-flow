@@ -495,6 +495,17 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               )}
             </>
           )}
+          {userRole === "admin" && costSheetId && (
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={deleteCostSheet} 
+              disabled={loading}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Cost Sheet
+            </Button>
+          )}
         </div>
       </div>
 
@@ -649,6 +660,15 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                           Reject
                         </Button>
                       </>
+                    )}
+                    {userRole === "admin" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteItem(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     )}
                   </div>
                 </TableCell>
