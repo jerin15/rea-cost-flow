@@ -38,6 +38,30 @@ const ApprovedCostSheets = () => {
 
   useEffect(() => {
     fetchApprovedCostSheets();
+
+    // Real-time subscription for new approvals
+    const channel = supabase
+      .channel('approved-items-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'cost_sheet_items',
+        },
+        (payload) => {
+          const newItem = payload.new as any;
+          if (newItem.approval_status === 'approved_both') {
+            // Refresh the list when new items are approved
+            fetchApprovedCostSheets();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {

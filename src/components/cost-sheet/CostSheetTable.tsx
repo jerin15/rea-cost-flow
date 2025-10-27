@@ -57,6 +57,84 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     }
   }, [clientId]);
 
+  // Real-time subscription for item approvals
+  useEffect(() => {
+    if (!costSheetId || userRole !== "estimator") return;
+
+    const channel = supabase
+      .channel('cost-sheet-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'cost_sheet_items',
+          filter: `cost_sheet_id=eq.${costSheetId}`
+        },
+        async (payload) => {
+          const newItem = payload.new as any;
+          
+          // Check if an item was just approved
+          if (newItem.approval_status === 'approved_both') {
+            // Fetch supplier name
+            const { data: supplierData } = await supabase
+              .from('suppliers')
+              .select('name')
+              .eq('id', newItem.supplier_id)
+              .single();
+
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('name')
+              .eq('id', clientId)
+              .single();
+
+            // Play notification sound
+            const playSound = async () => {
+              try {
+                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 880;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.4);
+              } catch (e) {
+                console.log('Audio play failed:', e);
+              }
+            };
+            
+            playSound();
+
+            // Show toast notification
+            toast.success(
+              `✅ Item Approved!`,
+              {
+                description: `Supplier: ${supplierData?.name || 'Unknown'} | Price: AED ${newItem.actual_quoted.toLocaleString()} | Client: ${clientData?.name || 'Unknown'}`,
+                duration: 8000,
+              }
+            );
+
+            // Refresh the items list
+            fetchCostSheetItems();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [costSheetId, userRole, clientId]);
+
   const fetchSuppliers = async () => {
     const { data, error } = await supabase
       .from("suppliers")
@@ -342,6 +420,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
   const approveItem = async (itemId: string) => {
     setLoading(true);
 
+    // Get item details before approval
+    const { data: itemData } = await supabase
+      .from("cost_sheet_items")
+      .select("*, suppliers(name)")
+      .eq("id", itemId)
+      .single();
+
     const { error } = await supabase
       .from("cost_sheet_items")
       .update({ approval_status: "approved_both" })
@@ -366,12 +451,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .eq("id", clientId)
       .single();
 
-    // Notify estimator
-    if (costSheetData) {
+    // Notify estimator with detailed information
+    if (costSheetData && itemData) {
       await supabase.from("notifications").insert({
         user_id: costSheetData.created_by,
         title: "✅ Item Approved",
-        message: `An item from your cost sheet for ${clientData?.name || "client"} has been approved!`,
+        message: `Supplier: ${itemData.suppliers?.name || 'Unknown'} | Price: AED ${itemData.actual_quoted?.toLocaleString() || 'N/A'} | Client: ${clientData?.name || "client"}`,
         type: "approval",
       });
     }
