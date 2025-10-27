@@ -53,6 +53,7 @@ export type Database = {
           item_number: number
           misc_cost: number | null
           misc_cost_type: string | null
+          misc_qty: number | null
           misc_supplier_id: string | null
           qty: number
           rea_margin: number
@@ -76,6 +77,7 @@ export type Database = {
           item_number: number
           misc_cost?: number | null
           misc_cost_type?: string | null
+          misc_qty?: number | null
           misc_supplier_id?: string | null
           qty?: number
           rea_margin?: number
@@ -99,6 +101,7 @@ export type Database = {
           item_number?: number
           misc_cost?: number | null
           misc_cost_type?: string | null
+          misc_qty?: number | null
           misc_supplier_id?: string | null
           qty?: number
           rea_margin?: number

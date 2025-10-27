@@ -29,6 +29,7 @@ interface CostSheetItem {
   qty: number;
   supplier_cost: number;
   misc_cost: number;
+  misc_qty: number;
   misc_cost_type: string;
   total_cost: number;
   rea_margin_percentage: number;
@@ -215,6 +216,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       qty: 1,
       supplier_cost: 0,
       misc_cost: 0,
+      misc_qty: 1,
       misc_cost_type: "",
       total_cost: 0,
       rea_margin_percentage: 0,
@@ -227,20 +229,38 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
   };
 
   const calculateTotals = (item: CostSheetItem) => {
-    const totalCost = (item.supplier_cost * item.qty) + (item.misc_cost || 0);
-    const reaMarginPercentage = item.rea_margin_percentage || 0;
-    const reaMargin = (totalCost * reaMarginPercentage) / 100;
-    const actualQuoted = totalCost + reaMargin;
-    const profitPercentage = totalCost > 0 ? ((reaMargin / totalCost) * 100) : 0;
+    // Calculate total cost: (supplier_cost × qty) + (misc_cost × misc_qty)
+    const supplierTotal = item.supplier_cost * item.qty;
+    const miscTotal = item.misc_supplier_id ? (item.misc_cost || 0) * (item.misc_qty || 1) : 0;
+    const totalCost = supplierTotal + miscTotal;
     
-    return { totalCost, reaMargin, actualQuoted, profitPercentage };
+    // Markup % is entered by user
+    const markupPercentage = item.rea_margin_percentage || 0;
+    
+    // Markup Amount = Total Cost × (Markup% / 100)
+    const markupAmount = (totalCost * markupPercentage) / 100;
+    
+    // Actual Quoted = Total Cost + Markup Amount
+    const actualQuoted = totalCost + markupAmount;
+    
+    // Gross Margin % = Markup% / (1 + Markup%/100)
+    const grossMarginPercentage = markupPercentage > 0 
+      ? (markupPercentage / (1 + markupPercentage / 100)) 
+      : 0;
+    
+    return { 
+      totalCost, 
+      reaMargin: markupAmount, 
+      actualQuoted, 
+      grossMarginPercentage 
+    };
   };
 
   const updateItem = (index: number, field: keyof CostSheetItem, value: any) => {
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    // Recalculate
+    // Recalculate whenever cost-related fields change
     const { totalCost, reaMargin, actualQuoted } = calculateTotals(updatedItems[index]);
     updatedItems[index].total_cost = totalCost;
     updatedItems[index].rea_margin = reaMargin;
@@ -375,6 +395,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             qty: item.qty,
             supplier_cost: item.supplier_cost,
             misc_cost: item.misc_cost,
+            misc_qty: item.misc_qty,
             misc_cost_type: item.misc_cost_type,
             total_cost: item.total_cost,
             rea_margin_percentage: item.rea_margin_percentage,
@@ -649,14 +670,15 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead>Product Supplier</TableHead>
               <TableHead>Qty</TableHead>
               <TableHead>Supplier Cost (AED)</TableHead>
-              <TableHead>Misc Cost (AED)</TableHead>
               <TableHead>Misc Supplier</TableHead>
+              <TableHead>Misc Qty</TableHead>
+              <TableHead>Misc Cost (AED)</TableHead>
               <TableHead>Misc Type</TableHead>
               <TableHead>Total Cost (AED)</TableHead>
-              <TableHead>REA Margin %</TableHead>
-              <TableHead>REA Margin (AED)</TableHead>
-              <TableHead>Profit %</TableHead>
-              <TableHead>Actual Quoted (AED)</TableHead>
+              <TableHead>Markup %</TableHead>
+              <TableHead>Markup Amount (AED)</TableHead>
+              <TableHead>Gross Margin %</TableHead>
+              <TableHead>Quoted Price (AED)</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -722,25 +744,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
-                    type="number"
-                    value={item.misc_cost || ""}
-                    onChange={(e) => updateItem(index, "misc_cost", parseFloat(e.target.value) || 0)}
-                    disabled={userRole !== "estimator"}
-                    className="w-28"
-                    placeholder="0"
-                  />
-                </TableCell>
-                <TableCell>
                   <Select
                     value={item.misc_supplier_id || ""}
                     onValueChange={(value) => updateItem(index, "misc_supplier_id", value)}
                     disabled={userRole !== "estimator"}
                   >
                     <SelectTrigger className="w-40 bg-popover">
-                      <SelectValue placeholder="Select..." />
+                      <SelectValue placeholder="Optional" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover">
+                      <SelectItem value="">None</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.name}
@@ -751,9 +764,29 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 </TableCell>
                 <TableCell>
                   <Input
+                    type="number"
+                    value={item.misc_qty || ""}
+                    onChange={(e) => updateItem(index, "misc_qty", parseInt(e.target.value) || 1)}
+                    disabled={userRole !== "estimator" || !item.misc_supplier_id}
+                    className="w-20"
+                    placeholder="1"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    value={item.misc_cost || ""}
+                    onChange={(e) => updateItem(index, "misc_cost", parseFloat(e.target.value) || 0)}
+                    disabled={userRole !== "estimator" || !item.misc_supplier_id}
+                    className="w-28"
+                    placeholder="0"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
                     value={item.misc_cost_type}
                     onChange={(e) => updateItem(index, "misc_cost_type", e.target.value)}
-                    disabled={userRole !== "estimator"}
+                    disabled={userRole !== "estimator" || !item.misc_supplier_id}
                     placeholder="Printing, etc."
                     className="w-32"
                   />
@@ -776,10 +809,14 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   {item.rea_margin.toFixed(2)}
                 </TableCell>
                 <TableCell className="font-semibold text-success">
-                  {((item.total_cost > 0 ? (item.rea_margin / item.total_cost) * 100 : 0)).toFixed(2)}%
+                  {(() => {
+                    const markupPercent = item.rea_margin_percentage || 0;
+                    const grossMargin = markupPercent > 0 ? (markupPercent / (1 + markupPercent / 100)) : 0;
+                    return grossMargin.toFixed(2);
+                  })()}%
                 </TableCell>
                 <TableCell className="font-bold text-lg">
-                  AED {item.actual_quoted.toFixed(2)}
+                  {item.actual_quoted.toFixed(2)}
                 </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium
