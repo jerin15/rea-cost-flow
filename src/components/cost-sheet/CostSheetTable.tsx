@@ -161,8 +161,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .neq("approval_status", "approved_both")
       .order("item_number");
 
+    console.log("Fetched cost sheet items:", { data, error });
+
     if (!error && data && data.length > 0) {
-      setItems(data);
+      // Ensure misc_qty has a default value for existing records
+      const itemsWithDefaults = data.map(item => ({
+        ...item,
+        misc_qty: item.misc_qty ?? 1,
+        misc_cost: item.misc_cost ?? 0,
+      }));
+      setItems(itemsWithDefaults);
       setCostSheetId(data[0].cost_sheet_id);
       
       // Get cost sheet status
@@ -230,12 +238,14 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
   const calculateTotals = (item: CostSheetItem) => {
     // Calculate total cost: (supplier_cost × qty) + (misc_cost × misc_qty)
-    const supplierTotal = item.supplier_cost * item.qty;
-    const miscTotal = item.misc_supplier_id ? (item.misc_cost || 0) * (item.misc_qty || 1) : 0;
+    const supplierTotal = (Number(item.supplier_cost) || 0) * (Number(item.qty) || 1);
+    const miscTotal = item.misc_supplier_id 
+      ? (Number(item.misc_cost) || 0) * (Number(item.misc_qty) || 1) 
+      : 0;
     const totalCost = supplierTotal + miscTotal;
     
     // Markup % is entered by user
-    const markupPercentage = item.rea_margin_percentage || 0;
+    const markupPercentage = Number(item.rea_margin_percentage) || 0;
     
     // Markup Amount = Total Cost × (Markup% / 100)
     const markupAmount = (totalCost * markupPercentage) / 100;
