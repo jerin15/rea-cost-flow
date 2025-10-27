@@ -35,22 +35,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener FIRST - MUST be synchronous
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        // Only synchronous state updates here
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch user role
+        // Defer Supabase calls with setTimeout to prevent deadlock
         if (session?.user) {
-          setTimeout(async () => {
-            const { data } = await supabase
+          setTimeout(() => {
+            supabase
               .from("user_roles")
               .select("role")
               .eq("user_id", session.user.id)
-              .single();
-            
-            setUserRole(data?.role || null);
+              .single()
+              .then(({ data }) => {
+                setUserRole(data?.role || null);
+              });
           }, 0);
         } else {
           setUserRole(null);
