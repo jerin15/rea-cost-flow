@@ -90,7 +90,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               .from('clients')
               .select('name')
               .eq('id', clientId)
-              .single();
+              .maybeSingle();
 
             // Play notification sound
             const playSound = async () => {
@@ -151,40 +151,57 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
   };
 
   const fetchCostSheetItems = async () => {
-    const { data, error } = await supabase
-      .from("cost_sheet_items")
-      .select(`
-        *,
-        cost_sheets!inner(client_id, id, status)
-      `)
-      .eq("cost_sheets.client_id", clientId)
-      .neq("approval_status", "approved_both")
-      .order("item_number");
+    try {
+      const { data, error } = await supabase
+        .from("cost_sheet_items")
+        .select(`
+          *,
+          cost_sheets!inner(client_id, id, status)
+        `)
+        .eq("cost_sheets.client_id", clientId)
+        .neq("approval_status", "approved_both")
+        .order("item_number");
 
-    console.log("Fetched cost sheet items:", { data, error });
+      console.log("Fetched cost sheet items:", { data, error });
 
-    if (!error && data && data.length > 0) {
-      // Ensure misc_qty has a default value for existing records
-      const itemsWithDefaults = data.map(item => ({
-        ...item,
-        misc_qty: item.misc_qty ?? 1,
-        misc_cost: item.misc_cost ?? 0,
-      }));
-      setItems(itemsWithDefaults);
-      setCostSheetId(data[0].cost_sheet_id);
-      
-      // Get cost sheet status
-      const { data: sheetData } = await supabase
-        .from("cost_sheets")
-        .select("status")
-        .eq("id", data[0].cost_sheet_id)
-        .single();
-      
-      if (sheetData) {
-        setCostSheetStatus(sheetData.status);
+      if (error) {
+        console.error("Error fetching cost sheet items:", error);
+        setItems([]);
+        setCostSheetId(null);
+        setCostSheetStatus("draft");
+        return;
       }
-    } else {
-      // No existing cost sheet, start fresh
+
+      if (data && data.length > 0) {
+        // Ensure misc_qty has a default value for existing records
+        const itemsWithDefaults = data.map(item => ({
+          ...item,
+          misc_qty: item.misc_qty ?? 1,
+          misc_cost: item.misc_cost ?? 0,
+        }));
+        setItems(itemsWithDefaults);
+        setCostSheetId(data[0].cost_sheet_id);
+        
+        // Get cost sheet status - use maybeSingle to avoid errors
+        const { data: sheetData, error: sheetError } = await supabase
+          .from("cost_sheets")
+          .select("status")
+          .eq("id", data[0].cost_sheet_id)
+          .maybeSingle();
+        
+        if (!sheetError && sheetData) {
+          setCostSheetStatus(sheetData.status);
+        } else {
+          setCostSheetStatus("draft");
+        }
+      } else {
+        // No existing cost sheet, start fresh
+        setItems([]);
+        setCostSheetId(null);
+        setCostSheetStatus("draft");
+      }
+    } catch (err) {
+      console.error("Unexpected error in fetchCostSheetItems:", err);
       setItems([]);
       setCostSheetId(null);
       setCostSheetStatus("draft");
@@ -474,7 +491,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .from("clients")
       .select("name")
       .eq("id", clientId)
-      .single();
+      .maybeSingle();
 
     // Create notifications for admins
     if (adminUsers && adminUsers.length > 0) {
@@ -501,7 +518,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .from("cost_sheet_items")
       .select("*, suppliers!cost_sheet_items_supplier_id_fkey(name)")
       .eq("id", itemId)
-      .single();
+      .maybeSingle();
 
     const { error } = await supabase
       .from("cost_sheet_items")
@@ -519,13 +536,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .from("cost_sheets")
       .select("created_by")
       .eq("id", costSheetId)
-      .single();
+      .maybeSingle();
 
     const { data: clientData } = await supabase
       .from("clients")
       .select("name")
       .eq("id", clientId)
-      .single();
+      .maybeSingle();
 
     // Notify estimator with detailed information
     if (costSheetData && itemData) {
@@ -561,13 +578,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       .from("cost_sheets")
       .select("created_by")
       .eq("id", costSheetId)
-      .single();
+      .maybeSingle();
 
     const { data: clientData } = await supabase
       .from("clients")
       .select("name")
       .eq("id", clientId)
-      .single();
+      .maybeSingle();
 
     // Notify estimator
     if (costSheetData) {
