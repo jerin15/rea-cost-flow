@@ -5,8 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface Client {
   id: string;
@@ -19,6 +20,7 @@ interface ClientSelectorProps {
 }
 
 export const ClientSelector = ({ selectedClient, onClientSelect }: ClientSelectorProps) => {
+  const { userRole } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [newClientName, setNewClientName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -81,6 +83,31 @@ export const ClientSelector = ({ selectedClient, onClientSelect }: ClientSelecto
     }
   };
 
+  const handleDeleteClient = async () => {
+    if (!selectedClient) return;
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this client? This will also delete all related cost sheets.");
+    if (!confirmDelete) return;
+
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("clients")
+      .delete()
+      .eq("id", selectedClient);
+
+    setLoading(false);
+
+    if (error) {
+      toast.error("Failed to delete client");
+      return;
+    }
+
+    toast.success("Client deleted successfully");
+    onClientSelect("");
+    fetchClients();
+  };
+
   return (
     <div className="flex items-center gap-4">
       <div className="flex-1">
@@ -127,6 +154,18 @@ export const ClientSelector = ({ selectedClient, onClientSelect }: ClientSelecto
           </form>
         </DialogContent>
       </Dialog>
+
+      {selectedClient && (userRole === "estimator" || userRole === "admin") && (
+        <Button 
+          variant="destructive" 
+          className="mt-8"
+          onClick={handleDeleteClient}
+          disabled={loading}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Client
+        </Button>
+      )}
     </div>
   );
 };

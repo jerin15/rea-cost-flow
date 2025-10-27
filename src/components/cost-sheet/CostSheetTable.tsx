@@ -636,7 +636,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                         variant="ghost"
                         size="icon"
                         onClick={() => deleteItem(index)}
-                        disabled={costSheetStatus !== "draft" && costSheetStatus !== "rejected"}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
