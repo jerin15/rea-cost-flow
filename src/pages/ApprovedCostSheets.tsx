@@ -88,6 +88,7 @@ const ApprovedCostSheets = () => {
         rea_margin,
         actual_quoted,
         item_number,
+        cost_sheet_id,
         cost_sheets!inner(
           id,
           client_id,
@@ -97,11 +98,19 @@ const ApprovedCostSheets = () => {
         suppliers(name)
       `)
       .eq("approval_status", "approved_both")
-      .order("cost_sheets.submitted_at", { ascending: false });
+      .order("date", { ascending: false });
 
-    if (!error && approvedItems) {
+    console.log("Approved items query result:", { data: approvedItems, error });
+
+    if (error) {
+      console.error("Error fetching approved cost sheets:", error);
+      setLoading(false);
+      return;
+    }
+
+    if (approvedItems && approvedItems.length > 0) {
       // Group items by client
-      const groupedByClient = approvedItems.reduce((acc, item) => {
+      const groupedByClient = approvedItems.reduce((acc, item: any) => {
         const clientId = item.cost_sheets.client_id;
         const clientName = item.cost_sheets.clients.name;
         
@@ -110,8 +119,8 @@ const ApprovedCostSheets = () => {
             id: clientId,
             client_id: clientId,
             client_name: clientName,
-            created_at: item.cost_sheets.submitted_at,
-            submitted_at: item.cost_sheets.submitted_at,
+            created_at: item.cost_sheets.submitted_at || new Date().toISOString(),
+            submitted_at: item.cost_sheets.submitted_at || new Date().toISOString(),
             total_items: 0,
             total_cost: 0,
           };
@@ -124,6 +133,8 @@ const ApprovedCostSheets = () => {
       }, {} as Record<string, ApprovedCostSheet>);
 
       setCostSheets(Object.values(groupedByClient));
+    } else {
+      setCostSheets([]);
     }
     
     setLoading(false);
