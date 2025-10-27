@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, Home, CheckCircle } from "lucide-react";
+import { LogOut, Home, CheckCircle, FileText } from "lucide-react";
 import reaLogo from "@/assets/rea-logo.jpg";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
@@ -57,6 +57,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             >
               <CheckCircle className="h-4 w-4" />
               Approved Cost Sheets
+            </Button>
+            <Button
+              variant={location.pathname === "/cost-sheet-records" ? "default" : "ghost"}
+              onClick={() => navigate("/cost-sheet-records")}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              All Records
             </Button>
           </nav>
         </div>

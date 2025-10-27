@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ApprovedCostSheets from "./pages/ApprovedCostSheets";
+import CostSheetRecords from "./pages/CostSheetRecords";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ApprovedCostSheets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cost-sheet-records"
+              element={
+                <ProtectedRoute>
+                  <CostSheetRecords />
                 </ProtectedRoute>
               }
             />
