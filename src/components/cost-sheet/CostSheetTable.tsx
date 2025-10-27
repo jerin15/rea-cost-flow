@@ -466,7 +466,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             </DialogContent>
           </Dialog>
           
-          {userRole === "estimator" && (costSheetStatus === "draft" || costSheetStatus === "rejected") && (
+          {userRole === "estimator" && (
             <>
               <Button variant="outline" size="sm" onClick={addNewRow}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -545,7 +545,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   <Textarea
                     value={item.item}
                     onChange={(e) => updateItem(index, "item", e.target.value)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                     placeholder="Enter detailed item description..."
                     className="min-w-[300px] min-h-[80px]"
                   />
@@ -554,7 +554,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   <Select
                     value={item.supplier_id || ""}
                     onValueChange={(value) => updateItem(index, "supplier_id", value)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                   >
                     <SelectTrigger className="w-40 bg-popover">
                       <SelectValue placeholder="Select..." />
@@ -573,7 +573,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     type="number"
                     value={item.qty || ""}
                     onChange={(e) => updateItem(index, "qty", parseInt(e.target.value) || 0)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                     className="w-20"
                     placeholder="0"
                   />
@@ -583,7 +583,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     type="number"
                     value={item.supplier_cost || ""}
                     onChange={(e) => updateItem(index, "supplier_cost", parseInt(e.target.value) || 0)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                     className="w-28"
                     placeholder="0"
                   />
@@ -593,7 +593,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     type="number"
                     value={item.misc_cost || ""}
                     onChange={(e) => updateItem(index, "misc_cost", parseInt(e.target.value) || 0)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                     className="w-28"
                     placeholder="0"
                   />
@@ -602,7 +602,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   <Input
                     value={item.misc_cost_type}
                     onChange={(e) => updateItem(index, "misc_cost_type", e.target.value)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                     placeholder="Type"
                     className="w-28"
                   />
@@ -613,7 +613,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     type="number"
                     value={item.rea_margin || ""}
                     onChange={(e) => updateItem(index, "rea_margin", parseInt(e.target.value) || 0)}
-                    disabled={userRole !== "estimator" || (costSheetStatus !== "draft" && costSheetStatus !== "rejected")}
+                    disabled={userRole !== "estimator"}
                     className="w-28"
                     placeholder="0"
                   />
