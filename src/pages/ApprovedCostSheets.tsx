@@ -95,7 +95,7 @@ const ApprovedCostSheets = () => {
           submitted_at,
           clients!inner(name)
         ),
-        suppliers(name)
+        suppliers!cost_sheet_items_supplier_id_fkey(name)
       `)
       .eq("approval_status", "approved_both")
       .order("date", { ascending: false });
@@ -145,7 +145,7 @@ const ApprovedCostSheets = () => {
       .from("cost_sheet_items")
       .select(`
         *,
-        suppliers(name),
+        suppliers!cost_sheet_items_supplier_id_fkey(name),
         cost_sheets!inner(client_id)
       `)
       .eq("cost_sheets.client_id", clientId)

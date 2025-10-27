@@ -53,8 +53,10 @@ export type Database = {
           item_number: number
           misc_cost: number | null
           misc_cost_type: string | null
+          misc_supplier_id: string | null
           qty: number
           rea_margin: number
+          rea_margin_percentage: number | null
           supplier_cost: number
           supplier_id: string | null
           total_cost: number
@@ -74,8 +76,10 @@ export type Database = {
           item_number: number
           misc_cost?: number | null
           misc_cost_type?: string | null
+          misc_supplier_id?: string | null
           qty?: number
           rea_margin?: number
+          rea_margin_percentage?: number | null
           supplier_cost?: number
           supplier_id?: string | null
           total_cost?: number
@@ -95,8 +99,10 @@ export type Database = {
           item_number?: number
           misc_cost?: number | null
           misc_cost_type?: string | null
+          misc_supplier_id?: string | null
           qty?: number
           rea_margin?: number
+          rea_margin_percentage?: number | null
           supplier_cost?: number
           supplier_id?: string | null
           total_cost?: number
@@ -108,6 +114,13 @@ export type Database = {
             columns: ["cost_sheet_id"]
             isOneToOne: false
             referencedRelation: "cost_sheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_sheet_items_misc_supplier_id_fkey"
+            columns: ["misc_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {

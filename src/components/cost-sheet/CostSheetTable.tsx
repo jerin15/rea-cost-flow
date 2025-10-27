@@ -25,11 +25,13 @@ interface CostSheetItem {
   date: string;
   item: string;
   supplier_id: string | null;
+  misc_supplier_id: string | null;
   qty: number;
   supplier_cost: number;
   misc_cost: number;
   misc_cost_type: string;
   total_cost: number;
+  rea_margin_percentage: number;
   rea_margin: number;
   actual_quoted: number;
   approval_status: ApprovalStatus;
@@ -81,7 +83,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               .from('suppliers')
               .select('name')
               .eq('id', newItem.supplier_id)
-              .single();
+              .maybeSingle();
 
             const { data: clientData } = await supabase
               .from('clients')
@@ -209,11 +211,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       date: format(new Date(), "yyyy-MM-dd"),
       item: "",
       supplier_id: null,
+      misc_supplier_id: null,
       qty: 1,
       supplier_cost: 0,
       misc_cost: 0,
       misc_cost_type: "",
       total_cost: 0,
+      rea_margin_percentage: 0,
       rea_margin: 0,
       actual_quoted: 0,
       approval_status: "pending",
@@ -224,10 +228,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
   const calculateTotals = (item: CostSheetItem) => {
     const totalCost = (item.supplier_cost * item.qty) + (item.misc_cost || 0);
-    const reaMargin = item.rea_margin || 0;
+    const reaMarginPercentage = item.rea_margin_percentage || 0;
+    const reaMargin = (totalCost * reaMarginPercentage) / 100;
     const actualQuoted = totalCost + reaMargin;
+    const profitPercentage = totalCost > 0 ? ((reaMargin / totalCost) * 100) : 0;
     
-    return { totalCost, reaMargin, actualQuoted };
+    return { totalCost, reaMargin, actualQuoted, profitPercentage };
   };
 
   const updateItem = (index: number, field: keyof CostSheetItem, value: any) => {
@@ -365,11 +371,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             date: item.date,
             item: item.item,
             supplier_id: item.supplier_id,
+            misc_supplier_id: item.misc_supplier_id,
             qty: item.qty,
             supplier_cost: item.supplier_cost,
             misc_cost: item.misc_cost,
             misc_cost_type: item.misc_cost_type,
             total_cost: item.total_cost,
+            rea_margin_percentage: item.rea_margin_percentage,
             rea_margin: item.rea_margin,
             actual_quoted: item.actual_quoted,
           })
@@ -460,7 +468,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     // Get item details before approval
     const { data: itemData } = await supabase
       .from("cost_sheet_items")
-      .select("*, suppliers(name)")
+      .select("*, suppliers!cost_sheet_items_supplier_id_fkey(name)")
       .eq("id", itemId)
       .single();
 
@@ -638,13 +646,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead className="w-16">No.</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Item</TableHead>
-              <TableHead>Supplier</TableHead>
+              <TableHead>Product Supplier</TableHead>
               <TableHead>Qty</TableHead>
               <TableHead>Supplier Cost (AED)</TableHead>
               <TableHead>Misc Cost (AED)</TableHead>
+              <TableHead>Misc Supplier</TableHead>
               <TableHead>Misc Type</TableHead>
               <TableHead>Total Cost (AED)</TableHead>
+              <TableHead>REA Margin %</TableHead>
               <TableHead>REA Margin (AED)</TableHead>
+              <TableHead>Profit %</TableHead>
               <TableHead>Actual Quoted (AED)</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -714,33 +725,62 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   <Input
                     type="number"
                     value={item.misc_cost || ""}
-                    onChange={(e) => updateItem(index, "misc_cost", parseInt(e.target.value) || 0)}
+                    onChange={(e) => updateItem(index, "misc_cost", parseFloat(e.target.value) || 0)}
                     disabled={userRole !== "estimator"}
                     className="w-28"
                     placeholder="0"
                   />
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={item.misc_supplier_id || ""}
+                    onValueChange={(value) => updateItem(index, "misc_supplier_id", value)}
+                    disabled={userRole !== "estimator"}
+                  >
+                    <SelectTrigger className="w-40 bg-popover">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell>
                   <Input
                     value={item.misc_cost_type}
                     onChange={(e) => updateItem(index, "misc_cost_type", e.target.value)}
                     disabled={userRole !== "estimator"}
-                    placeholder="Type"
-                    className="w-28"
+                    placeholder="Printing, etc."
+                    className="w-32"
                   />
                 </TableCell>
-                <TableCell className="font-semibold">{item.total_cost}</TableCell>
+                <TableCell className="font-semibold">
+                  {item.total_cost.toFixed(2)}
+                </TableCell>
                 <TableCell>
                   <Input
                     type="number"
-                    value={item.rea_margin || ""}
-                    onChange={(e) => updateItem(index, "rea_margin", parseInt(e.target.value) || 0)}
+                    value={item.rea_margin_percentage || ""}
+                    onChange={(e) => updateItem(index, "rea_margin_percentage", parseFloat(e.target.value) || 0)}
                     disabled={userRole !== "estimator"}
-                    className="w-28"
+                    className="w-24"
                     placeholder="0"
+                    step="0.01"
                   />
                 </TableCell>
-                <TableCell className="font-semibold">{item.actual_quoted}</TableCell>
+                <TableCell className="font-semibold text-primary">
+                  {item.rea_margin.toFixed(2)}
+                </TableCell>
+                <TableCell className="font-semibold text-success">
+                  {((item.total_cost > 0 ? (item.rea_margin / item.total_cost) * 100 : 0)).toFixed(2)}%
+                </TableCell>
+                <TableCell className="font-bold text-lg">
+                  AED {item.actual_quoted.toFixed(2)}
+                </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium
                     ${item.approval_status === "pending" ? "bg-warning/20 text-warning-foreground" : ""}
