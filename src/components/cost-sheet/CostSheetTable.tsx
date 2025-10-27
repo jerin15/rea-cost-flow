@@ -772,15 +772,15 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 </TableCell>
                 <TableCell>
                   <Select
-                    value={item.misc_supplier_id || ""}
-                    onValueChange={(value) => updateItem(index, "misc_supplier_id", value)}
+                    value={item.misc_supplier_id || "none"}
+                    onValueChange={(value) => updateItem(index, "misc_supplier_id", value === "none" ? null : value)}
                     disabled={userRole !== "estimator"}
                   >
                     <SelectTrigger className="w-40 bg-popover">
                       <SelectValue placeholder="Optional" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover">
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.name}
