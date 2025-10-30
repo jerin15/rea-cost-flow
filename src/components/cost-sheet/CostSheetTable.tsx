@@ -764,10 +764,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   <Input
                     type="number"
                     value={item.supplier_cost || ""}
-                    onChange={(e) => updateItem(index, "supplier_cost", parseInt(e.target.value) || 0)}
+                    onChange={(e) => updateItem(index, "supplier_cost", parseFloat(e.target.value) || 0)}
                     disabled={userRole !== "estimator"}
                     className="w-28"
                     placeholder="0"
+                    step="0.01"
                   />
                 </TableCell>
                 <TableCell>
@@ -807,6 +808,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     disabled={userRole !== "estimator" || !item.misc_supplier_id}
                     className="w-28"
                     placeholder="0"
+                    step="0.01"
                   />
                 </TableCell>
                 <TableCell>
