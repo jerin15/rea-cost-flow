@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Save, Send, Trash2 } from "lucide-react";
+import { Plus, Save, Send, Trash2, Upload, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { format } from "date-fns";
@@ -37,6 +37,7 @@ interface CostSheetItem {
   actual_quoted: number;
   approval_status: ApprovalStatus;
   admin_remarks: string;
+  photo_url: string | null;
 }
 
 interface CostSheetTableProps {
@@ -249,11 +250,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       actual_quoted: 0,
       approval_status: "pending",
       admin_remarks: "",
+      photo_url: null,
     };
     setItems([...items, newItem]);
   };
 
-  const calculateTotals = (item: CostSheetItem) => {
+  const calculateFromMarkup = (item: CostSheetItem) => {
     // Calculate total cost: (supplier_cost × qty) + (misc_cost × misc_qty)
     const supplierTotal = (Number(item.supplier_cost) || 0) * (Number(item.qty) || 1);
     const miscTotal = item.misc_supplier_id 
@@ -283,21 +285,119 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     };
   };
 
+  const calculateFromQuotedPrice = (item: CostSheetItem) => {
+    // Calculate total cost
+    const supplierTotal = (Number(item.supplier_cost) || 0) * (Number(item.qty) || 1);
+    const miscTotal = item.misc_supplier_id 
+      ? (Number(item.misc_cost) || 0) * (Number(item.misc_qty) || 1) 
+      : 0;
+    const totalCost = supplierTotal + miscTotal;
+    
+    // Actual Quoted is entered by user
+    const actualQuoted = Number(item.actual_quoted) || 0;
+    
+    // Markup Amount = Actual Quoted - Total Cost
+    const markupAmount = actualQuoted - totalCost;
+    
+    // Markup % = (Markup Amount / Total Cost) × 100
+    const markupPercentage = totalCost > 0 ? (markupAmount / totalCost) * 100 : 0;
+    
+    // Gross Margin % = Markup% / (1 + Markup%/100)
+    const grossMarginPercentage = markupPercentage > 0 
+      ? (markupPercentage / (1 + markupPercentage / 100)) 
+      : 0;
+    
+    return { 
+      totalCost, 
+      reaMargin: markupAmount, 
+      reaMarginPercentage: markupPercentage,
+      grossMarginPercentage 
+    };
+  };
+
   const updateItem = (index: number, field: keyof CostSheetItem, value: any) => {
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    // Recalculate whenever cost-related fields change
-    const { totalCost, reaMargin, actualQuoted } = calculateTotals(updatedItems[index]);
-    updatedItems[index].total_cost = totalCost;
-    updatedItems[index].rea_margin = reaMargin;
-    updatedItems[index].actual_quoted = actualQuoted;
+    // If markup percentage is changed, calculate quoted price
+    if (field === "rea_margin_percentage" || 
+        field === "supplier_cost" || 
+        field === "qty" || 
+        field === "misc_cost" || 
+        field === "misc_qty" || 
+        field === "misc_supplier_id") {
+      const { totalCost, reaMargin, actualQuoted } = calculateFromMarkup(updatedItems[index]);
+      updatedItems[index].total_cost = totalCost;
+      updatedItems[index].rea_margin = reaMargin;
+      updatedItems[index].actual_quoted = actualQuoted;
+    }
+    // If quoted price is changed, calculate markup percentage
+    else if (field === "actual_quoted") {
+      const { totalCost, reaMargin, reaMarginPercentage } = calculateFromQuotedPrice(updatedItems[index]);
+      updatedItems[index].total_cost = totalCost;
+      updatedItems[index].rea_margin = reaMargin;
+      updatedItems[index].rea_margin_percentage = reaMarginPercentage;
+    }
     
     setItems(updatedItems);
   };
 
+  const uploadPhoto = async (index: number, file: File) => {
+    const item = items[index];
+    
+    // Delete old photo if exists
+    if (item.photo_url) {
+      const oldPath = item.photo_url.split('/').pop();
+      if (oldPath) {
+        await supabase.storage.from('product-photos').remove([oldPath]);
+      }
+    }
+    
+    // Upload new photo
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('product-photos')
+      .upload(fileName, file);
+    
+    if (uploadError) {
+      toast.error("Failed to upload photo");
+      return;
+    }
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('product-photos')
+      .getPublicUrl(fileName);
+    
+    updateItem(index, "photo_url", publicUrl);
+    toast.success("Photo uploaded successfully");
+  };
+
+  const removePhoto = async (index: number) => {
+    const item = items[index];
+    
+    if (item.photo_url) {
+      const path = item.photo_url.split('/').pop();
+      if (path) {
+        await supabase.storage.from('product-photos').remove([path]);
+      }
+    }
+    
+    updateItem(index, "photo_url", null);
+    toast.success("Photo removed");
+  };
+
   const deleteItem = async (index: number) => {
     const item = items[index];
+    
+    // Delete photo if exists
+    if (item.photo_url) {
+      const path = item.photo_url.split('/').pop();
+      if (path) {
+        await supabase.storage.from('product-photos').remove([path]);
+      }
+    }
     
     if (item.id) {
       // Delete from database
@@ -733,6 +833,47 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   />
                 </TableCell>
                 <TableCell>
+                  <div className="flex flex-col gap-2 items-center min-w-[120px]">
+                    {item.photo_url ? (
+                      <div className="relative group">
+                        <img 
+                          src={item.photo_url} 
+                          alt="Product" 
+                          className="w-20 h-20 object-cover rounded border"
+                        />
+                        {userRole === "estimator" && (
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removePhoto(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      userRole === "estimator" && (
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadPhoto(index, file);
+                            }}
+                          />
+                          <div className="flex flex-col items-center gap-1 p-2 border-2 border-dashed rounded hover:bg-accent transition-colors">
+                            <Upload className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Upload</span>
+                          </div>
+                        </label>
+                      )
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
                   <Select
                     value={item.supplier_id || ""}
                     onValueChange={(value) => updateItem(index, "supplier_id", value)}
@@ -844,8 +985,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     return grossMargin.toFixed(2);
                   })()}%
                 </TableCell>
-                <TableCell className="font-bold text-lg">
-                  {item.actual_quoted.toFixed(2)}
+                <TableCell>
+                  <Input
+                    type="number"
+                    value={item.actual_quoted || ""}
+                    onChange={(e) => updateItem(index, "actual_quoted", parseFloat(e.target.value) || 0)}
+                    disabled={userRole !== "estimator"}
+                    className="w-32 font-bold text-lg"
+                    placeholder="0"
+                    step="0.01"
+                  />
                 </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium
