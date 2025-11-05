@@ -66,7 +66,6 @@ export type Database = {
           misc_qty: number | null
           misc_supplier_id: string | null
           misc_type: string | null
-          photo_url: string | null
           qty: number
           rea_margin: number
           rea_margin_percentage: number | null
@@ -102,7 +101,6 @@ export type Database = {
           misc_qty?: number | null
           misc_supplier_id?: string | null
           misc_type?: string | null
-          photo_url?: string | null
           qty?: number
           rea_margin?: number
           rea_margin_percentage?: number | null
@@ -138,7 +136,6 @@ export type Database = {
           misc_qty?: number | null
           misc_supplier_id?: string | null
           misc_type?: string | null
-          photo_url?: string | null
           qty?: number
           rea_margin?: number
           rea_margin_percentage?: number | null

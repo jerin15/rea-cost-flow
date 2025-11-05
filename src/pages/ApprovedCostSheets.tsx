@@ -27,12 +27,24 @@ interface CostSheetDetail {
   date: string;
   item: string;
   supplier_name: string;
+  misc_supplier_name: string | null;
+  misc_type: string | null;
+  misc_description: string | null;
   qty: number;
   supplier_cost: number;
   misc_cost: number;
   total_cost: number;
   rea_margin: number;
   actual_quoted: number;
+  admin_chosen_for_quotation: boolean;
+  admin_chosen_supplier_name: string | null;
+  admin_chosen_misc_supplier_name: string | null;
+  admin_chosen_supplier_cost: number;
+  admin_chosen_misc_cost: number;
+  admin_chosen_total_cost: number;
+  admin_chosen_rea_margin: number;
+  admin_chosen_actual_quoted: number;
+  admin_quotation_notes: string | null;
 }
 
 const ApprovedCostSheets = () => {
@@ -152,6 +164,9 @@ const ApprovedCostSheets = () => {
       .select(`
         *,
         suppliers!cost_sheet_items_supplier_id_fkey(name),
+        misc_suppliers:suppliers!cost_sheet_items_misc_supplier_id_fkey(name),
+        admin_chosen_suppliers:suppliers!cost_sheet_items_admin_chosen_supplier_id_fkey(name),
+        admin_chosen_misc_suppliers:suppliers!cost_sheet_items_admin_chosen_misc_supplier_id_fkey(name),
         cost_sheets!inner(client_id)
       `)
       .eq("cost_sheets.client_id", clientId)
@@ -159,17 +174,29 @@ const ApprovedCostSheets = () => {
       .order("item_number");
 
     if (!error && data) {
-      setSheetDetails(data.map(item => ({
+      setSheetDetails(data.map((item: any) => ({
         item_number: item.item_number,
         date: item.date,
         item: item.item,
         supplier_name: item.suppliers?.name || "N/A",
+        misc_supplier_name: item.misc_suppliers?.name || null,
+        misc_type: item.misc_type,
+        misc_description: item.misc_description,
         qty: item.qty,
         supplier_cost: item.supplier_cost,
         misc_cost: item.misc_cost || 0,
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
         actual_quoted: item.actual_quoted,
+        admin_chosen_for_quotation: item.admin_chosen_for_quotation || false,
+        admin_chosen_supplier_name: item.admin_chosen_suppliers?.name || null,
+        admin_chosen_misc_supplier_name: item.admin_chosen_misc_suppliers?.name || null,
+        admin_chosen_supplier_cost: item.admin_chosen_supplier_cost || 0,
+        admin_chosen_misc_cost: item.admin_chosen_misc_cost || 0,
+        admin_chosen_total_cost: item.admin_chosen_total_cost || 0,
+        admin_chosen_rea_margin: item.admin_chosen_rea_margin || 0,
+        admin_chosen_actual_quoted: item.admin_chosen_actual_quoted || 0,
+        admin_quotation_notes: item.admin_quotation_notes,
       })));
     }
   };
@@ -389,14 +416,15 @@ const ApprovedCostSheets = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[500px]">
+              <ScrollArea className="h-[600px]">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Item Description</TableHead>
-                      <TableHead className="font-semibold text-success">Approved Supplier</TableHead>
+                      <TableHead>Estimator's Supplier</TableHead>
+                      <TableHead>Misc Supplier</TableHead>
                       <TableHead>Qty</TableHead>
                       <TableHead>Supplier Cost</TableHead>
                       <TableHead>Misc Cost</TableHead>
@@ -407,18 +435,67 @@ const ApprovedCostSheets = () => {
                   </TableHeader>
                   <TableBody>
                     {sheetDetails.map((item) => (
-                      <TableRow key={item.item_number}>
-                        <TableCell>{item.item_number}</TableCell>
-                        <TableCell>{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="max-w-[300px] whitespace-normal">{item.item}</TableCell>
-                        <TableCell className="font-medium text-success">{item.supplier_name}</TableCell>
-                        <TableCell>{item.qty}</TableCell>
-                        <TableCell>AED {item.supplier_cost.toLocaleString()}</TableCell>
-                        <TableCell>AED {item.misc_cost.toLocaleString()}</TableCell>
-                        <TableCell>AED {item.total_cost.toLocaleString()}</TableCell>
-                        <TableCell>AED {item.rea_margin.toLocaleString()}</TableCell>
-                        <TableCell className="font-bold">AED {item.actual_quoted.toLocaleString()}</TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow key={item.item_number}>
+                          <TableCell>{item.item_number}</TableCell>
+                          <TableCell>{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
+                          <TableCell className="max-w-[300px] whitespace-normal">{item.item}</TableCell>
+                          <TableCell className="font-medium">{item.supplier_name}</TableCell>
+                          <TableCell className="text-sm">
+                            {item.misc_supplier_name || "None"}
+                            {item.misc_type && <div className="text-xs text-muted-foreground">{item.misc_type}</div>}
+                          </TableCell>
+                          <TableCell>{item.qty}</TableCell>
+                          <TableCell>AED {item.supplier_cost.toLocaleString()}</TableCell>
+                          <TableCell>AED {item.misc_cost.toLocaleString()}</TableCell>
+                          <TableCell>AED {item.total_cost.toLocaleString()}</TableCell>
+                          <TableCell>AED {item.rea_margin.toLocaleString()}</TableCell>
+                          <TableCell className="font-bold">AED {item.actual_quoted.toLocaleString()}</TableCell>
+                        </TableRow>
+                        {item.admin_chosen_for_quotation && (
+                          <TableRow className="bg-success/5 border-l-4 border-success">
+                            <TableCell colSpan={11}>
+                              <div className="p-4 space-y-3">
+                                <h4 className="font-semibold text-success flex items-center gap-2">
+                                  <span>✓</span> Admin's Approved Quotation Configuration
+                                </h4>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                  <div className="p-2 bg-background rounded border">
+                                    <span className="text-xs text-muted-foreground">Product Supplier:</span>
+                                    <p className="font-semibold text-sm">{item.admin_chosen_supplier_name || item.supplier_name}</p>
+                                    <span className="text-xs">Cost: AED {(item.admin_chosen_supplier_cost || item.supplier_cost).toLocaleString()}</span>
+                                  </div>
+                                  <div className="p-2 bg-background rounded border">
+                                    <span className="text-xs text-muted-foreground">Misc Supplier:</span>
+                                    <p className="font-semibold text-sm">{item.admin_chosen_misc_supplier_name || item.misc_supplier_name || "None"}</p>
+                                    <span className="text-xs">Cost: AED {(item.admin_chosen_misc_cost || item.misc_cost).toLocaleString()}</span>
+                                  </div>
+                                  <div className="p-2 bg-background rounded border">
+                                    <span className="text-xs text-muted-foreground">Total Cost:</span>
+                                    <p className="font-bold text-base">{((item.admin_chosen_supplier_cost || item.supplier_cost) + (item.admin_chosen_misc_cost || item.misc_cost)).toFixed(2)} AED</p>
+                                  </div>
+                                  <div className="p-2 bg-success/10 rounded border border-success">
+                                    <span className="text-xs text-muted-foreground">Final Quoted:</span>
+                                    <p className="font-bold text-base text-success">AED {(item.admin_chosen_actual_quoted || item.actual_quoted).toLocaleString()}</p>
+                                  </div>
+                                </div>
+                                {item.misc_description && (
+                                  <div className="p-2 bg-muted rounded">
+                                    <span className="text-xs font-medium">Misc Description:</span>
+                                    <p className="text-sm mt-1">{item.misc_description}</p>
+                                  </div>
+                                )}
+                                {item.admin_quotation_notes && (
+                                  <div className="p-2 bg-warning/10 rounded border border-warning/30">
+                                    <span className="text-xs font-medium text-warning-foreground">Admin Notes:</span>
+                                    <p className="text-sm mt-1">{item.admin_quotation_notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
                   </TableBody>
                 </Table>
