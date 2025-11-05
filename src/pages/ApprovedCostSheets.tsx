@@ -423,79 +423,127 @@ const ApprovedCostSheets = () => {
                       <TableHead>#</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Item Description</TableHead>
-                      <TableHead>Estimator's Supplier</TableHead>
-                      <TableHead>Misc Supplier</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Supplier Cost</TableHead>
-                      <TableHead>Misc Cost</TableHead>
-                      <TableHead>Total Cost</TableHead>
-                      <TableHead>REA Margin</TableHead>
-                      <TableHead>Actual Quoted</TableHead>
+                      <TableHead>Details</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sheetDetails.map((item) => (
-                      <>
-                        <TableRow key={item.item_number}>
-                          <TableCell>{item.item_number}</TableCell>
-                          <TableCell>{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                          <TableCell className="max-w-[300px] whitespace-normal">{item.item}</TableCell>
-                          <TableCell className="font-medium">{item.supplier_name}</TableCell>
-                          <TableCell className="text-sm">
-                            {item.misc_supplier_name || "None"}
-                            {item.misc_type && <div className="text-xs text-muted-foreground">{item.misc_type}</div>}
-                          </TableCell>
-                          <TableCell>{item.qty}</TableCell>
-                          <TableCell>AED {item.supplier_cost.toLocaleString()}</TableCell>
-                          <TableCell>AED {item.misc_cost.toLocaleString()}</TableCell>
-                          <TableCell>AED {item.total_cost.toLocaleString()}</TableCell>
-                          <TableCell>AED {item.rea_margin.toLocaleString()}</TableCell>
-                          <TableCell className="font-bold">AED {item.actual_quoted.toLocaleString()}</TableCell>
-                        </TableRow>
-                        {item.admin_chosen_for_quotation && (
-                          <TableRow className="bg-success/5 border-l-4 border-success">
-                            <TableCell colSpan={11}>
-                              <div className="p-4 space-y-3">
-                                <h4 className="font-semibold text-success flex items-center gap-2">
-                                  <span>✓</span> Admin's Approved Quotation Configuration
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                  <div className="p-2 bg-background rounded border">
-                                    <span className="text-xs text-muted-foreground">Product Supplier:</span>
-                                    <p className="font-semibold text-sm">{item.admin_chosen_supplier_name || item.supplier_name}</p>
-                                    <span className="text-xs">Cost: AED {(item.admin_chosen_supplier_cost || item.supplier_cost).toLocaleString()}</span>
+                      <TableRow key={item.item_number} className="align-top">
+                        <TableCell className="font-medium">{item.item_number}</TableCell>
+                        <TableCell className="whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="max-w-[400px]">
+                          <p className="font-medium mb-2">{item.item}</p>
+                          {item.misc_description && (
+                            <div className="mt-2 p-2 bg-muted rounded text-sm">
+                              <span className="font-medium">Misc Details:</span>
+                              <p className="text-muted-foreground mt-1">{item.misc_description}</p>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="min-w-[600px]">
+                          {item.admin_chosen_for_quotation ? (
+                            <div className="space-y-3 p-4 bg-success/5 rounded-lg border border-success/20">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-success text-lg">✓</span>
+                                <h4 className="font-semibold text-success">Admin's Approved Quotation Configuration</h4>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-background rounded border">
+                                  <span className="text-xs text-muted-foreground block mb-1">Product Supplier</span>
+                                  <p className="font-semibold">{item.admin_chosen_supplier_name || item.supplier_name}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-muted-foreground">Qty:</span>
+                                    <span className="font-medium">{item.qty}</span>
                                   </div>
-                                  <div className="p-2 bg-background rounded border">
-                                    <span className="text-xs text-muted-foreground">Misc Supplier:</span>
-                                    <p className="font-semibold text-sm">{item.admin_chosen_misc_supplier_name || item.misc_supplier_name || "None"}</p>
-                                    <span className="text-xs">Cost: AED {(item.admin_chosen_misc_cost || item.misc_cost).toLocaleString()}</span>
-                                  </div>
-                                  <div className="p-2 bg-background rounded border">
-                                    <span className="text-xs text-muted-foreground">Total Cost:</span>
-                                    <p className="font-bold text-base">{((item.admin_chosen_supplier_cost || item.supplier_cost) + (item.admin_chosen_misc_cost || item.misc_cost)).toFixed(2)} AED</p>
-                                  </div>
-                                  <div className="p-2 bg-success/10 rounded border border-success">
-                                    <span className="text-xs text-muted-foreground">Final Quoted:</span>
-                                    <p className="font-bold text-base text-success">AED {(item.admin_chosen_actual_quoted || item.actual_quoted).toLocaleString()}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Cost:</span>
+                                    <span className="font-bold text-primary">AED {(item.admin_chosen_supplier_cost || item.supplier_cost).toLocaleString()}</span>
                                   </div>
                                 </div>
-                                {item.misc_description && (
-                                  <div className="p-2 bg-muted rounded">
-                                    <span className="text-xs font-medium">Misc Description:</span>
-                                    <p className="text-sm mt-1">{item.misc_description}</p>
+
+                                <div className="p-3 bg-background rounded border">
+                                  <span className="text-xs text-muted-foreground block mb-1">Misc Supplier</span>
+                                  <p className="font-semibold">{item.admin_chosen_misc_supplier_name || item.misc_supplier_name || "None"}</p>
+                                  {item.misc_type && (
+                                    <div className="text-xs text-muted-foreground mt-1">Type: {item.misc_type}</div>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-muted-foreground">Cost:</span>
+                                    <span className="font-bold text-primary">AED {(item.admin_chosen_misc_cost || item.misc_cost).toLocaleString()}</span>
                                   </div>
-                                )}
-                                {item.admin_quotation_notes && (
-                                  <div className="p-2 bg-warning/10 rounded border border-warning/30">
-                                    <span className="text-xs font-medium text-warning-foreground">Admin Notes:</span>
-                                    <p className="text-sm mt-1">{item.admin_quotation_notes}</p>
-                                  </div>
-                                )}
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
+
+                              <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                                <div className="p-3 bg-background rounded">
+                                  <span className="text-xs text-muted-foreground block mb-1">Total Cost</span>
+                                  <p className="text-lg font-bold">AED {((item.admin_chosen_supplier_cost || item.supplier_cost) + (item.admin_chosen_misc_cost || item.misc_cost)).toLocaleString()}</p>
+                                </div>
+                                <div className="p-3 bg-primary/10 rounded">
+                                  <span className="text-xs text-muted-foreground block mb-1">REA Margin</span>
+                                  <p className="text-lg font-bold text-primary">AED {(item.admin_chosen_rea_margin || item.rea_margin).toLocaleString()}</p>
+                                </div>
+                                <div className="p-3 bg-success/20 rounded border border-success">
+                                  <span className="text-xs text-muted-foreground block mb-1">Final Quoted Price</span>
+                                  <p className="text-lg font-bold text-success">AED {(item.admin_chosen_actual_quoted || item.actual_quoted).toLocaleString()}</p>
+                                </div>
+                              </div>
+
+                              {item.admin_quotation_notes && (
+                                <div className="p-3 bg-warning/10 rounded border border-warning/30 mt-3">
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-warning-foreground text-lg">📝</span>
+                                    <div className="flex-1">
+                                      <span className="text-sm font-semibold text-warning-foreground block">Admin's Instructions:</span>
+                                      <p className="text-sm mt-1">{item.admin_quotation_notes}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-2 text-sm">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-muted-foreground">Estimator's Supplier:</span>
+                                  <p className="font-medium">{item.supplier_name}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Supplier Cost:</span>
+                                  <p className="font-medium">AED {item.supplier_cost.toLocaleString()}</p>
+                                </div>
+                              </div>
+                              {item.misc_supplier_name && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-muted-foreground">Misc Supplier:</span>
+                                    <p className="font-medium">{item.misc_supplier_name}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Misc Cost:</span>
+                                    <p className="font-medium">AED {item.misc_cost.toLocaleString()}</p>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                                <div>
+                                  <span className="text-muted-foreground">Total Cost:</span>
+                                  <p className="font-bold">AED {item.total_cost.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">REA Margin:</span>
+                                  <p className="font-bold">AED {item.rea_margin.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Quoted:</span>
+                                  <p className="font-bold">AED {item.actual_quoted.toLocaleString()}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
                     ))}
                   </TableBody>
                 </Table>
