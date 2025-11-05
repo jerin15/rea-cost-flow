@@ -41,6 +41,15 @@ export type Database = {
       cost_sheet_items: {
         Row: {
           actual_quoted: number
+          admin_chosen_actual_quoted: number | null
+          admin_chosen_for_quotation: boolean | null
+          admin_chosen_misc_cost: number | null
+          admin_chosen_misc_supplier_id: string | null
+          admin_chosen_rea_margin: number | null
+          admin_chosen_supplier_cost: number | null
+          admin_chosen_supplier_id: string | null
+          admin_chosen_total_cost: number | null
+          admin_quotation_notes: string | null
           admin_remarks: string | null
           approval_status: Database["public"]["Enums"]["approval_status"]
           approved_by_admin_a: boolean | null
@@ -53,8 +62,10 @@ export type Database = {
           item_number: number
           misc_cost: number | null
           misc_cost_type: string | null
+          misc_description: string | null
           misc_qty: number | null
           misc_supplier_id: string | null
+          misc_type: string | null
           photo_url: string | null
           qty: number
           rea_margin: number
@@ -66,6 +77,15 @@ export type Database = {
         }
         Insert: {
           actual_quoted?: number
+          admin_chosen_actual_quoted?: number | null
+          admin_chosen_for_quotation?: boolean | null
+          admin_chosen_misc_cost?: number | null
+          admin_chosen_misc_supplier_id?: string | null
+          admin_chosen_rea_margin?: number | null
+          admin_chosen_supplier_cost?: number | null
+          admin_chosen_supplier_id?: string | null
+          admin_chosen_total_cost?: number | null
+          admin_quotation_notes?: string | null
           admin_remarks?: string | null
           approval_status?: Database["public"]["Enums"]["approval_status"]
           approved_by_admin_a?: boolean | null
@@ -78,8 +98,10 @@ export type Database = {
           item_number: number
           misc_cost?: number | null
           misc_cost_type?: string | null
+          misc_description?: string | null
           misc_qty?: number | null
           misc_supplier_id?: string | null
+          misc_type?: string | null
           photo_url?: string | null
           qty?: number
           rea_margin?: number
@@ -91,6 +113,15 @@ export type Database = {
         }
         Update: {
           actual_quoted?: number
+          admin_chosen_actual_quoted?: number | null
+          admin_chosen_for_quotation?: boolean | null
+          admin_chosen_misc_cost?: number | null
+          admin_chosen_misc_supplier_id?: string | null
+          admin_chosen_rea_margin?: number | null
+          admin_chosen_supplier_cost?: number | null
+          admin_chosen_supplier_id?: string | null
+          admin_chosen_total_cost?: number | null
+          admin_quotation_notes?: string | null
           admin_remarks?: string | null
           approval_status?: Database["public"]["Enums"]["approval_status"]
           approved_by_admin_a?: boolean | null
@@ -103,8 +134,10 @@ export type Database = {
           item_number?: number
           misc_cost?: number | null
           misc_cost_type?: string | null
+          misc_description?: string | null
           misc_qty?: number | null
           misc_supplier_id?: string | null
+          misc_type?: string | null
           photo_url?: string | null
           qty?: number
           rea_margin?: number
@@ -115,6 +148,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cost_sheet_items_admin_chosen_misc_supplier_id_fkey"
+            columns: ["admin_chosen_misc_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_sheet_items_admin_chosen_supplier_id_fkey"
+            columns: ["admin_chosen_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cost_sheet_items_cost_sheet_id_fkey"
             columns: ["cost_sheet_id"]
