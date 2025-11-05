@@ -794,6 +794,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead className="w-16">No.</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Item</TableHead>
+              <TableHead>Photo</TableHead>
               <TableHead>Product Supplier</TableHead>
               <TableHead>Qty</TableHead>
               <TableHead>Supplier Cost (AED)</TableHead>
