@@ -146,7 +146,7 @@ export const ItemSupplierManager = ({
                       placeholder="0"
                       value={supplier.qty || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-10 text-base min-w-[100px]"
+                      className="h-10 text-base w-full"
                       disabled={isReadOnly}
                     />
                   </div>
@@ -159,7 +159,7 @@ export const ItemSupplierManager = ({
                       placeholder="0.00"
                       value={supplier.unit_cost || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-10 text-base min-w-[120px]"
+                      className="h-10 text-base w-full"
                       disabled={isReadOnly}
                     />
                   </div>
@@ -262,7 +262,7 @@ export const ItemSupplierManager = ({
                         placeholder="0"
                         value={supplier.qty || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-10 text-base min-w-[100px]"
+                        className="h-10 text-base w-full"
                         disabled={isReadOnly}
                       />
                     </div>
@@ -275,7 +275,7 @@ export const ItemSupplierManager = ({
                         placeholder="0.00"
                         value={supplier.unit_cost || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-10 text-base min-w-[120px]"
+                        className="h-10 text-base w-full"
                         disabled={isReadOnly}
                       />
                     </div>
