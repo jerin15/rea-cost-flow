@@ -25,6 +25,7 @@ interface CostSheetRecord {
   misc_cost: number;
   total_cost: number;
   rea_margin: number;
+  rea_margin_percentage: number;
   actual_quoted: number;
   approval_status: string;
   created_at: string;
@@ -85,6 +86,7 @@ const CostSheetRecords = () => {
         misc_cost: item.misc_cost || 0,
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
+        rea_margin_percentage: item.rea_margin_percentage || 0,
         actual_quoted: item.actual_quoted,
         approval_status: item.approval_status,
         created_at: item.created_at,
@@ -171,43 +173,66 @@ const CostSheetRecords = () => {
               ) : records.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No cost sheet items found for this client</p>
               ) : (
-                <ScrollArea className="h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Item Description</TableHead>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead>Supplier Cost</TableHead>
-                        <TableHead>Misc Cost</TableHead>
-                        <TableHead>Total Cost</TableHead>
-                        <TableHead>REA Margin</TableHead>
-                        <TableHead>Actual Quoted</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {records.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell>{record.item_number}</TableCell>
-                          <TableCell>{format(new Date(record.date), "dd/MM/yyyy")}</TableCell>
-                          <TableCell className="max-w-[300px] whitespace-normal">{record.item}</TableCell>
-                          <TableCell>{record.supplier_name}</TableCell>
-                          <TableCell>{record.qty}</TableCell>
-                          <TableCell>AED {record.supplier_cost.toLocaleString()}</TableCell>
-                          <TableCell>AED {record.misc_cost.toLocaleString()}</TableCell>
-                          <TableCell>AED {record.total_cost.toLocaleString()}</TableCell>
-                          <TableCell>AED {record.rea_margin.toLocaleString()}</TableCell>
-                          <TableCell className="font-bold">AED {record.actual_quoted.toLocaleString()}</TableCell>
-                          <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
-                          <TableCell>{format(new Date(record.created_at), "dd/MM/yyyy")}</TableCell>
+                <ScrollArea className="h-[600px] w-full">
+                  <div className="min-w-[1400px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">#</TableHead>
+                          <TableHead className="w-32">Date</TableHead>
+                          <TableHead className="min-w-[200px]">Item</TableHead>
+                          <TableHead className="w-40">Supplier</TableHead>
+                          <TableHead className="w-24">Qty</TableHead>
+                          <TableHead className="w-32">Total Cost</TableHead>
+                          <TableHead className="w-32">Client Unit Cost</TableHead>
+                          <TableHead className="w-24">Markup %</TableHead>
+                          <TableHead className="w-32">Markup (AED)</TableHead>
+                          <TableHead className="w-32">Quoted Price</TableHead>
+                          <TableHead className="w-24">Margin %</TableHead>
+                          <TableHead className="w-32">Status</TableHead>
+                          <TableHead className="w-32">Created</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {records.map((record) => {
+                          const clientUnitCost = record.qty > 0 ? record.actual_quoted / record.qty : 0;
+                          const marginPercentage = record.actual_quoted > 0 
+                            ? ((record.actual_quoted - record.total_cost) / record.actual_quoted) * 100 
+                            : 0;
+
+                          return (
+                            <TableRow key={record.id}>
+                              <TableCell className="font-medium">{record.item_number}</TableCell>
+                              <TableCell className="whitespace-nowrap">{format(new Date(record.date), "dd/MM/yyyy")}</TableCell>
+                              <TableCell className="max-w-[300px]">{record.item}</TableCell>
+                              <TableCell>{record.supplier_name}</TableCell>
+                              <TableCell>{record.qty}</TableCell>
+                              <TableCell className="font-semibold">
+                                AED {record.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="font-semibold text-primary">
+                                AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="font-semibold">
+                                {record.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                              </TableCell>
+                              <TableCell className="font-semibold text-primary">
+                                AED {record.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="font-bold text-success">
+                                AED {record.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="font-semibold text-success">
+                                {marginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                              </TableCell>
+                              <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
+                              <TableCell className="whitespace-nowrap">{format(new Date(record.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </ScrollArea>
               )}
             </CardContent>
