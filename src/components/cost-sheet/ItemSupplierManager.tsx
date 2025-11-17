@@ -118,7 +118,7 @@ export const ItemSupplierManager = ({
                       </Button>
                     </div>
                   )}
-                  <div className={isAdmin ? "col-span-4" : "col-span-5"}>
+                  <div className={isAdmin ? "col-span-3" : "col-span-4"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Supplier</Label>
                     <Select
                       value={supplier.supplier_id}
@@ -137,7 +137,7 @@ export const ItemSupplierManager = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
+                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Quantity</Label>
                     <Input
                       type="number"
@@ -146,11 +146,11 @@ export const ItemSupplierManager = ({
                       placeholder="0"
                       value={supplier.qty || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-10"
+                      className="h-10 text-base"
                       disabled={isReadOnly}
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className={isAdmin ? "col-span-3" : "col-span-3"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Unit Price (AED)</Label>
                     <Input
                       type="number"
@@ -159,11 +159,11 @@ export const ItemSupplierManager = ({
                       placeholder="0.00"
                       value={supplier.unit_cost || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-10"
+                      className="h-10 text-base"
                       disabled={isReadOnly}
                     />
                   </div>
-                  <div className={isAdmin ? "col-span-1" : "col-span-2"}>
+                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Total</Label>
                     <div className="text-base font-bold text-right pt-2">
                       AED {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -234,7 +234,7 @@ export const ItemSupplierManager = ({
                         </Button>
                       </div>
                     )}
-                    <div className={isAdmin ? "col-span-4" : "col-span-5"}>
+                    <div className={isAdmin ? "col-span-3" : "col-span-4"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Supplier</Label>
                       <Select
                         value={supplier.supplier_id}
@@ -253,7 +253,7 @@ export const ItemSupplierManager = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-2">
+                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Quantity</Label>
                       <Input
                         type="number"
@@ -262,11 +262,11 @@ export const ItemSupplierManager = ({
                         placeholder="0"
                         value={supplier.qty || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-10"
+                        className="h-10 text-base"
                         disabled={isReadOnly}
                       />
                     </div>
-                    <div className="col-span-3">
+                    <div className={isAdmin ? "col-span-3" : "col-span-3"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Unit Price (AED)</Label>
                       <Input
                         type="number"
@@ -275,11 +275,11 @@ export const ItemSupplierManager = ({
                         placeholder="0.00"
                         value={supplier.unit_cost || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-10"
+                        className="h-10 text-base"
                         disabled={isReadOnly}
                       />
                     </div>
-                    <div className={isAdmin ? "col-span-1" : "col-span-2"}>
+                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Total</Label>
                       <div className="text-base font-bold text-right pt-2">
                         AED {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
