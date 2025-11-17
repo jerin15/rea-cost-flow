@@ -314,14 +314,27 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     updated[index] = { ...updated[index], [field]: value };
 
     // Recalculate costs if needed
-    if (field === 'suppliers' || field === 'rea_margin_percentage') {
+    if (field === 'suppliers' || field === 'rea_margin_percentage' || field === 'actual_quoted') {
       const item = updated[index];
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
       const totalCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
       
       item.total_cost = totalCost;
-      item.rea_margin = (totalCost * item.rea_margin_percentage) / 100;
-      item.actual_quoted = totalCost + item.rea_margin;
+
+      if (field === 'actual_quoted') {
+        // User entered quoted price directly - calculate markup and margin
+        const quotedPrice = parseFloat(value) || 0;
+        const markup = quotedPrice - totalCost;
+        const markupPercentage = totalCost > 0 ? (markup / totalCost) * 100 : 0;
+        
+        item.actual_quoted = quotedPrice;
+        item.rea_margin = markup;
+        item.rea_margin_percentage = markupPercentage;
+      } else {
+        // User changed markup percentage - calculate quoted price
+        item.rea_margin = (totalCost * item.rea_margin_percentage) / 100;
+        item.actual_quoted = totalCost + item.rea_margin;
+      }
     }
 
     setItems(updated);
@@ -578,10 +591,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead className="w-32">Date</TableHead>
               <TableHead className="min-w-[200px]">Item</TableHead>
               <TableHead className="min-w-[400px]">Suppliers</TableHead>
-              <TableHead className="w-24">REA %</TableHead>
-              <TableHead className="w-32">REA Margin</TableHead>
-              <TableHead className="w-32">Total</TableHead>
-              <TableHead className="w-32">Quoted</TableHead>
+              <TableHead className="w-32">Total Cost</TableHead>
+              <TableHead className="w-24">Markup %</TableHead>
+              <TableHead className="w-32">Markup (AED)</TableHead>
+              <TableHead className="w-32">Quoted Price</TableHead>
+              <TableHead className="w-24">Margin %</TableHead>
               {userRole === "admin" && (
                 <TableHead className="min-w-[200px]">Admin Remarks</TableHead>
               )}
@@ -590,116 +604,138 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((item, index) => (
-              <TableRow key={item.id || index}>
-                <TableCell>{item.item_number}</TableCell>
-                <TableCell>
-                  <Input
-                    type="date"
-                    value={item.date}
-                    onChange={(e) => updateItem(index, 'date', e.target.value)}
-                    disabled={isReadOnly}
-                    className="w-32"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    value={item.item}
-                    onChange={(e) => updateItem(index, 'item', e.target.value)}
-                    disabled={isReadOnly}
-                    placeholder="Item description"
-                  />
-                </TableCell>
-                <TableCell>
-                  <ItemSupplierManager
-                    suppliers={suppliers}
-                    supplierOptions={item.suppliers}
-                    onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
-                    isAdmin={userRole === "admin"}
-                    isReadOnly={isReadOnly}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    value={item.rea_margin_percentage}
-                    onChange={(e) => updateItem(index, 'rea_margin_percentage', parseFloat(e.target.value) || 0)}
-                    disabled={isReadOnly}
-                    className="w-20"
-                  />
-                </TableCell>
-                <TableCell className="font-semibold">
-                  AED {item.rea_margin.toLocaleString()}
-                </TableCell>
-                <TableCell className="font-semibold">
-                  AED {item.total_cost.toLocaleString()}
-                </TableCell>
-                <TableCell className="font-bold text-success">
-                  AED {item.actual_quoted.toLocaleString()}
-                </TableCell>
-                {userRole === "admin" && (
+            {items.map((item, index) => {
+              // Calculate margin percentage: (Selling Price - Cost) / Selling Price * 100
+              const marginPercentage = item.actual_quoted > 0 
+                ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
+                : 0;
+
+              return (
+                <TableRow key={item.id || index}>
+                  <TableCell>{item.item_number}</TableCell>
                   <TableCell>
-                    <Textarea
-                      value={item.admin_remarks}
-                      onChange={(e) => updateItem(index, 'admin_remarks', e.target.value)}
-                      placeholder="Admin remarks..."
-                      className="min-h-[60px]"
+                    <Input
+                      type="date"
+                      value={item.date}
+                      onChange={(e) => updateItem(index, 'date', e.target.value)}
+                      disabled={isReadOnly}
+                      className="w-32"
                     />
                   </TableCell>
-                )}
-                <TableCell>
-                  {getApprovalBadge(item.approval_status)}
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-2">
-                    {!isReadOnly && (
-                      <Button
-                        size="sm"
-                        onClick={() => saveItem(index)}
-                        disabled={loading}
-                      >
-                        <Save className="h-4 w-4 mr-1" />
-                        Save
-                      </Button>
-                    )}
-                    {userRole === "admin" && item.approval_status !== "approved_both" && (
-                      <>
+                  <TableCell>
+                    <Input
+                      value={item.item}
+                      onChange={(e) => updateItem(index, 'item', e.target.value)}
+                      disabled={isReadOnly}
+                      placeholder="Item description"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <ItemSupplierManager
+                      suppliers={suppliers}
+                      supplierOptions={item.suppliers}
+                      onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
+                      isAdmin={userRole === "admin"}
+                      isReadOnly={isReadOnly}
+                    />
+                  </TableCell>
+                  <TableCell className="font-semibold">
+                    AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0"
+                      value={item.rea_margin_percentage || ""}
+                      onChange={(e) => updateItem(index, 'rea_margin_percentage', parseFloat(e.target.value) || 0)}
+                      disabled={isReadOnly}
+                      className="w-20"
+                    />
+                  </TableCell>
+                  <TableCell className="font-semibold text-primary">
+                    AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={item.actual_quoted || ""}
+                      onChange={(e) => updateItem(index, 'actual_quoted', parseFloat(e.target.value) || 0)}
+                      disabled={isReadOnly}
+                      className="w-32 font-bold"
+                    />
+                  </TableCell>
+                  <TableCell className="font-semibold text-success">
+                    {marginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                  </TableCell>
+                  {userRole === "admin" && (
+                    <TableCell>
+                      <Textarea
+                        value={item.admin_remarks}
+                        onChange={(e) => updateItem(index, 'admin_remarks', e.target.value)}
+                        placeholder="Admin remarks..."
+                        className="min-h-[60px]"
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    {getApprovalBadge(item.approval_status)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      {!isReadOnly && (
                         <Button
                           size="sm"
-                          variant="default"
-                          onClick={() => handleApproval(index, true)}
+                          onClick={() => saveItem(index)}
                           disabled={loading}
                         >
-                          <Check className="h-4 w-4 mr-1" />
-                          Approve
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
                         </Button>
+                      )}
+                      {userRole === "admin" && item.approval_status !== "approved_both" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleApproval(index, true)}
+                            disabled={loading}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleApproval(index, false)}
+                            disabled={loading}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {userRole === "estimator" && !isReadOnly && (
                         <Button
                           size="sm"
-                          variant="destructive"
-                          onClick={() => handleApproval(index, false)}
+                          variant="ghost"
+                          onClick={() => deleteItem(index)}
                           disabled={loading}
+                          className="text-destructive"
                         >
-                          <X className="h-4 w-4 mr-1" />
-                          Reject
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
                         </Button>
-                      </>
-                    )}
-                    {userRole === "estimator" && !isReadOnly && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteItem(index)}
-                        disabled={loading}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </ScrollArea>

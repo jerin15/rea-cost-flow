@@ -36,6 +36,7 @@ interface CostSheetDetail {
   misc_qty: number;
   total_cost: number;
   rea_margin: number;
+  rea_margin_percentage: number;
   actual_quoted: number;
   admin_remarks: string | null;
 }
@@ -179,6 +180,7 @@ const ApprovedCostSheets = () => {
         misc_qty: item.misc_qty || 1,
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
+        rea_margin_percentage: item.rea_margin_percentage || 0,
         actual_quoted: item.actual_quoted,
         admin_remarks: item.admin_remarks || null,
       })));
@@ -458,18 +460,37 @@ const ApprovedCostSheets = () => {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                            <div className="grid grid-cols-4 gap-3 pt-3 border-t">
                               <div className="p-3 bg-background rounded">
-                                <span className="text-xs text-muted-foreground block mb-1">Total Unit Cost</span>
-                                <p className="text-lg font-bold">AED {(item.supplier_cost + item.misc_cost).toLocaleString()}</p>
+                                <span className="text-xs text-muted-foreground block mb-1">Total Cost</span>
+                                <p className="text-lg font-bold">AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                               </div>
                               <div className="p-3 bg-primary/10 rounded">
-                                <span className="text-xs text-muted-foreground block mb-1">REA Margin</span>
-                                <p className="text-lg font-bold text-primary">AED {item.rea_margin.toLocaleString()}</p>
+                                <span className="text-xs text-muted-foreground block mb-1">Markup %</span>
+                                <p className="text-lg font-bold text-primary">{item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</p>
+                              </div>
+                              <div className="p-3 bg-primary/10 rounded">
+                                <span className="text-xs text-muted-foreground block mb-1">Markup Amount</span>
+                                <p className="text-lg font-bold text-primary">AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                               </div>
                               <div className="p-3 bg-success/20 rounded border border-success">
-                                <span className="text-xs text-muted-foreground block mb-1">Final Quoted Price</span>
-                                <p className="text-lg font-bold text-success">AED {item.actual_quoted.toLocaleString()}</p>
+                                <span className="text-xs text-muted-foreground block mb-1">Quoted Price</span>
+                                <p className="text-lg font-bold text-success">AED {item.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 pt-2">
+                              <div className="p-3 bg-success/10 rounded border">
+                                <span className="text-xs text-muted-foreground block mb-1">Margin %</span>
+                                <p className="text-base font-bold text-success">
+                                  {item.actual_quoted > 0 
+                                    ? (((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                    : '0.00'
+                                  }%
+                                </p>
+                                <span className="text-xs text-muted-foreground mt-1 block italic">
+                                  Margin = (Quoted Price - Total Cost) / Quoted Price × 100
+                                </span>
                               </div>
                             </div>
 
