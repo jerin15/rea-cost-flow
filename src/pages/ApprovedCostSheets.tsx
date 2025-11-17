@@ -234,19 +234,28 @@ const ApprovedCostSheets = () => {
   const downloadCSV = (clientName: string) => {
     if (sheetDetails.length === 0) return;
 
-    const headers = ["#", "Date", "Item", "Supplier", "Misc", "Qty", "Unit Cost (AED)", "Total Cost (AED)", "REA Margin (AED)", "Quoted (AED)"];
-    const rows = sheetDetails.map(item => [
-      item.item_number,
-      format(new Date(item.date), "dd/MM/yyyy"),
-      item.item,
-      item.supplier_name,
-      item.misc_supplier_name || "N/A",
-      item.qty,
-      (item.supplier_cost + item.misc_cost).toFixed(2),
-      item.total_cost,
-      item.rea_margin,
-      item.actual_quoted,
-    ]);
+    const headers = ["#", "Date", "Item", "Supplier", "Qty", "Total Cost (AED)", "Client Unit Cost (AED)", "Markup %", "Markup (AED)", "Quoted Price (AED)", "Margin %", "Admin Remarks"];
+    const rows = sheetDetails.map(item => {
+      const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
+      const marginPercentage = item.actual_quoted > 0 
+        ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
+        : 0;
+      
+      return [
+        item.item_number,
+        format(new Date(item.date), "dd/MM/yyyy"),
+        item.item,
+        item.supplier_name,
+        item.qty,
+        item.total_cost.toFixed(2),
+        clientUnitCost.toFixed(2),
+        item.rea_margin_percentage.toFixed(2),
+        item.rea_margin.toFixed(2),
+        item.actual_quoted.toFixed(2),
+        marginPercentage.toFixed(2),
+        item.admin_remarks || "",
+      ];
+    });
 
     const csvContent = [
       headers.join(","),
@@ -270,28 +279,36 @@ const ApprovedCostSheets = () => {
   const downloadPDF = (clientName: string) => {
     if (sheetDetails.length === 0) return;
 
-    const doc = new jsPDF();
+    const doc = new jsPDF('landscape'); // Use landscape mode for more columns
     
     doc.setFontSize(18);
     doc.text(`Approved Cost Sheet - ${clientName}`, 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
 
-    const tableData = sheetDetails.map(item => [
-      item.item_number,
-      format(new Date(item.date), "dd/MM/yyyy"),
-      item.item,
-      item.supplier_name,
-      item.misc_supplier_name || "N/A",
-      item.qty,
-      `AED ${(item.supplier_cost + item.misc_cost).toFixed(2)}`,
-      `AED ${item.total_cost.toLocaleString()}`,
-      `AED ${item.rea_margin.toLocaleString()}`,
-      `AED ${item.actual_quoted.toLocaleString()}`,
-    ]);
+    const tableData = sheetDetails.map(item => {
+      const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
+      const marginPercentage = item.actual_quoted > 0 
+        ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
+        : 0;
+      
+      return [
+        item.item_number,
+        format(new Date(item.date), "dd/MM/yyyy"),
+        item.item,
+        item.supplier_name,
+        item.qty,
+        `AED ${item.total_cost.toFixed(2)}`,
+        `AED ${clientUnitCost.toFixed(2)}`,
+        `${item.rea_margin_percentage.toFixed(2)}%`,
+        `AED ${item.rea_margin.toFixed(2)}`,
+        `AED ${item.actual_quoted.toFixed(2)}`,
+        `${marginPercentage.toFixed(2)}%`,
+      ];
+    });
 
     autoTable(doc, {
-      head: [["#", "Date", "Item", "Supplier", "Misc", "Qty", "Unit Cost", "Total Cost", "Margin", "Quoted"]],
+      head: [["#", "Date", "Item", "Supplier", "Qty", "Total Cost", "Client Unit Cost", "Markup %", "Markup", "Quoted", "Margin %"]],
       body: tableData,
       startY: 35,
       styles: { fontSize: 7 },
@@ -402,115 +419,90 @@ const ApprovedCostSheets = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[600px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Item Description</TableHead>
-                      <TableHead>Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sheetDetails.map((item) => (
-                      <TableRow key={item.item_number} className="align-top">
-                        <TableCell className="font-medium">{item.item_number}</TableCell>
-                        <TableCell className="whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="max-w-[400px]">
-                          <p className="font-medium mb-2">{item.item}</p>
-                          {item.misc_description && (
-                            <div className="mt-2 p-2 bg-muted rounded text-sm">
-                              <span className="font-medium">Misc Details:</span>
-                              <p className="text-muted-foreground mt-1">{item.misc_description}</p>
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="min-w-[600px]">
-                          <div className="space-y-3 p-4 bg-success/5 rounded-lg border border-success/20">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="text-success text-lg">✓</span>
-                              <h4 className="font-semibold text-success">Approved Quotation Details</h4>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="p-3 bg-background rounded border">
-                                <span className="text-xs text-muted-foreground block mb-1">Product Supplier</span>
-                                <p className="font-semibold">{item.supplier_name}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-muted-foreground">Qty:</span>
-                                  <span className="font-medium">{item.qty}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground">Unit Cost:</span>
-                                  <span className="font-bold text-primary">AED {item.supplier_cost.toLocaleString()}</span>
-                                </div>
-                              </div>
-
-                              <div className="p-3 bg-background rounded border">
-                                <span className="text-xs text-muted-foreground block mb-1">Misc Supplier</span>
-                                <p className="font-semibold">{item.misc_supplier_name || "None"}</p>
-                                {item.misc_type && (
-                                  <div className="text-xs text-muted-foreground mt-1">Type: {item.misc_type}</div>
-                                )}
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-muted-foreground">Cost:</span>
-                                  <span className="font-bold text-primary">AED {item.misc_cost.toLocaleString()}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-3 pt-3 border-t">
-                              <div className="p-3 bg-background rounded">
-                                <span className="text-xs text-muted-foreground block mb-1">Total Cost</span>
-                                <p className="text-lg font-bold">AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                              </div>
-                              <div className="p-3 bg-primary/10 rounded">
-                                <span className="text-xs text-muted-foreground block mb-1">Markup %</span>
-                                <p className="text-lg font-bold text-primary">{item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</p>
-                              </div>
-                              <div className="p-3 bg-primary/10 rounded">
-                                <span className="text-xs text-muted-foreground block mb-1">Markup Amount</span>
-                                <p className="text-lg font-bold text-primary">AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                              </div>
-                              <div className="p-3 bg-success/20 rounded border border-success">
-                                <span className="text-xs text-muted-foreground block mb-1">Quoted Price</span>
-                                <p className="text-lg font-bold text-success">AED {item.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 pt-2">
-                              <div className="p-3 bg-success/10 rounded border">
-                                <span className="text-xs text-muted-foreground block mb-1">Margin %</span>
-                                <p className="text-base font-bold text-success">
-                                  {item.actual_quoted > 0 
-                                    ? (((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                    : '0.00'
-                                  }%
-                                </p>
-                                <span className="text-xs text-muted-foreground mt-1 block italic">
-                                  Margin = (Quoted Price - Total Cost) / Quoted Price × 100
-                                </span>
-                              </div>
-                            </div>
-
-                            {item.admin_remarks && (
-                              <div className="p-3 bg-warning/10 rounded border border-warning/30 mt-3">
-                                <div className="flex items-start gap-2">
-                                  <span className="text-warning-foreground text-lg">📝</span>
-                                  <div className="flex-1">
-                                    <span className="text-sm font-semibold text-warning-foreground block">Admin's Instructions:</span>
-                                    <p className="text-sm mt-1">{item.admin_remarks}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
+              <ScrollArea className="h-[600px] w-full">
+                <div className="min-w-[1400px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-16">#</TableHead>
+                        <TableHead className="w-32">Date</TableHead>
+                        <TableHead className="min-w-[200px]">Item</TableHead>
+                        <TableHead className="min-w-[150px]">Suppliers</TableHead>
+                        <TableHead className="w-32">Total Cost</TableHead>
+                        <TableHead className="w-32">Client Unit Cost</TableHead>
+                        <TableHead className="w-24">Markup %</TableHead>
+                        <TableHead className="w-32">Markup (AED)</TableHead>
+                        <TableHead className="w-32">Quoted Price</TableHead>
+                        <TableHead className="w-24">Margin %</TableHead>
+                        <TableHead className="min-w-[200px]">Admin Remarks</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {sheetDetails.map((item) => {
+                        const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
+                        const marginPercentage = item.actual_quoted > 0 
+                          ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
+                          : 0;
+
+                        return (
+                          <TableRow key={item.item_number}>
+                            <TableCell className="font-medium">{item.item_number}</TableCell>
+                            <TableCell className="whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{item.item}</p>
+                                {item.misc_description && (
+                                  <p className="text-xs text-muted-foreground mt-1">{item.misc_description}</p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="text-sm">
+                                  <span className="font-medium">{item.supplier_name}</span>
+                                  <p className="text-xs text-muted-foreground">Qty: {item.qty}</p>
+                                </div>
+                                {item.misc_supplier_name && (
+                                  <div className="text-sm border-t pt-1">
+                                    <span className="font-medium">{item.misc_supplier_name}</span>
+                                    <p className="text-xs text-muted-foreground">
+                                      {item.misc_type} - Qty: {item.misc_qty}</p>
+                                  <div className="text-xs text-muted-foreground mt-1">Type: {item.misc_type}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="font-semibold text-primary">
+                              AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                            </TableCell>
+                            <TableCell className="font-semibold text-primary">
+                              AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="font-bold text-success">
+                              AED {item.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="font-semibold text-success">
+                              {marginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                            </TableCell>
+                            <TableCell>
+                              {item.admin_remarks && (
+                                <div className="max-w-[200px] text-sm text-muted-foreground">
+                                  {item.admin_remarks}
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
