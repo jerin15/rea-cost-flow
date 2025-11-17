@@ -38,6 +38,60 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_sheet_item_suppliers: {
+        Row: {
+          cost_sheet_item_id: string
+          created_at: string
+          description: string | null
+          id: string
+          qty: number
+          selected_by_admin: boolean | null
+          supplier_id: string
+          supplier_type: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          cost_sheet_item_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          qty?: number
+          selected_by_admin?: boolean | null
+          supplier_id: string
+          supplier_type: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          cost_sheet_item_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          qty?: number
+          selected_by_admin?: boolean | null
+          supplier_id?: string
+          supplier_type?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_sheet_item_suppliers_cost_sheet_item_id_fkey"
+            columns: ["cost_sheet_item_id"]
+            isOneToOne: false
+            referencedRelation: "cost_sheet_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_sheet_item_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_sheet_items: {
         Row: {
           actual_quoted: number
