@@ -39,15 +39,6 @@ interface CostSheetItem {
   actual_quoted: number;
   approval_status: ApprovalStatus;
   admin_remarks: string;
-  admin_chosen_supplier_id: string | null;
-  admin_chosen_misc_supplier_id: string | null;
-  admin_chosen_supplier_cost: number;
-  admin_chosen_misc_cost: number;
-  admin_chosen_total_cost: number;
-  admin_chosen_rea_margin: number;
-  admin_chosen_actual_quoted: number;
-  admin_chosen_for_quotation: boolean;
-  admin_quotation_notes: string | null;
 }
 
 interface CostSheetTableProps {
@@ -776,9 +767,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead>Qty</TableHead>
               <TableHead>Supplier Cost (AED)</TableHead>
               <TableHead>Misc Supplier</TableHead>
+              <TableHead>Misc Type</TableHead>
+              <TableHead>Misc Description</TableHead>
               <TableHead>Misc Qty</TableHead>
               <TableHead>Misc Cost (AED)</TableHead>
-              <TableHead>Misc Type</TableHead>
+              <TableHead>Unit Cost (AED)</TableHead>
               <TableHead>Total Cost (AED)</TableHead>
               <TableHead>Markup %</TableHead>
               <TableHead>Markup Amount (AED)</TableHead>
