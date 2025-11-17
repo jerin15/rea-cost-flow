@@ -33,18 +33,10 @@ interface CostSheetDetail {
   qty: number;
   supplier_cost: number;
   misc_cost: number;
+  misc_qty: number;
   total_cost: number;
   rea_margin: number;
   actual_quoted: number;
-  admin_chosen_for_quotation: boolean;
-  admin_chosen_supplier_name: string | null;
-  admin_chosen_misc_supplier_name: string | null;
-  admin_chosen_supplier_cost: number;
-  admin_chosen_misc_cost: number;
-  admin_chosen_total_cost: number;
-  admin_chosen_rea_margin: number;
-  admin_chosen_actual_quoted: number;
-  admin_quotation_notes: string | null;
 }
 
 const ApprovedCostSheets = () => {
@@ -248,15 +240,15 @@ const ApprovedCostSheets = () => {
   const downloadCSV = (clientName: string) => {
     if (sheetDetails.length === 0) return;
 
-    const headers = ["#", "Date", "Item", "Supplier", "Qty", "Supplier Cost (AED)", "Misc Cost (AED)", "Total Cost (AED)", "REA Margin (AED)", "Actual Quoted (AED)"];
+    const headers = ["#", "Date", "Item", "Supplier", "Misc", "Qty", "Unit Cost (AED)", "Total Cost (AED)", "REA Margin (AED)", "Quoted (AED)"];
     const rows = sheetDetails.map(item => [
       item.item_number,
       format(new Date(item.date), "dd/MM/yyyy"),
       item.item,
       item.supplier_name,
+      item.misc_supplier_name || "N/A",
       item.qty,
-      item.supplier_cost,
-      item.misc_cost,
+      (item.supplier_cost + item.misc_cost).toFixed(2),
       item.total_cost,
       item.rea_margin,
       item.actual_quoted,
@@ -296,19 +288,19 @@ const ApprovedCostSheets = () => {
       format(new Date(item.date), "dd/MM/yyyy"),
       item.item,
       item.supplier_name,
+      item.misc_supplier_name || "N/A",
       item.qty,
-      `AED ${item.supplier_cost.toLocaleString()}`,
-      `AED ${item.misc_cost.toLocaleString()}`,
+      `AED ${(item.supplier_cost + item.misc_cost).toFixed(2)}`,
       `AED ${item.total_cost.toLocaleString()}`,
       `AED ${item.rea_margin.toLocaleString()}`,
       `AED ${item.actual_quoted.toLocaleString()}`,
     ]);
 
     autoTable(doc, {
-      head: [["#", "Date", "Item", "Supplier", "Qty", "Supplier Cost", "Misc Cost", "Total Cost", "REA Margin", "Actual Quoted"]],
+      head: [["#", "Date", "Item", "Supplier", "Misc", "Qty", "Unit Cost", "Total Cost", "Margin", "Quoted"]],
       body: tableData,
       startY: 35,
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
       headStyles: { fillColor: [59, 130, 246] },
     });
 
