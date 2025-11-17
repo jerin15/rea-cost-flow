@@ -118,7 +118,7 @@ export const ItemSupplierManager = ({
                       </Button>
                     </div>
                   )}
-                  <div className={isAdmin ? "col-span-3" : "col-span-4"}>
+                  <div className={isAdmin ? "col-span-3" : "col-span-3"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Supplier</Label>
                     <Select
                       value={supplier.supplier_id}
@@ -137,7 +137,7 @@ export const ItemSupplierManager = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
+                  <div className={isAdmin ? "col-span-2" : "col-span-3"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Quantity</Label>
                     <Input
                       type="number"
@@ -146,7 +146,7 @@ export const ItemSupplierManager = ({
                       placeholder="0"
                       value={supplier.qty || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-10 text-base"
+                      className="h-10 text-base min-w-[100px]"
                       disabled={isReadOnly}
                     />
                   </div>
@@ -159,7 +159,7 @@ export const ItemSupplierManager = ({
                       placeholder="0.00"
                       value={supplier.unit_cost || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-10 text-base"
+                      className="h-10 text-base min-w-[120px]"
                       disabled={isReadOnly}
                     />
                   </div>
@@ -234,7 +234,7 @@ export const ItemSupplierManager = ({
                         </Button>
                       </div>
                     )}
-                    <div className={isAdmin ? "col-span-3" : "col-span-4"}>
+                    <div className={isAdmin ? "col-span-3" : "col-span-3"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Supplier</Label>
                       <Select
                         value={supplier.supplier_id}
@@ -253,7 +253,7 @@ export const ItemSupplierManager = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
+                    <div className={isAdmin ? "col-span-2" : "col-span-3"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Quantity</Label>
                       <Input
                         type="number"
@@ -262,7 +262,7 @@ export const ItemSupplierManager = ({
                         placeholder="0"
                         value={supplier.qty || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-10 text-base"
+                        className="h-10 text-base min-w-[100px]"
                         disabled={isReadOnly}
                       />
                     </div>
@@ -275,7 +275,7 @@ export const ItemSupplierManager = ({
                         placeholder="0.00"
                         value={supplier.unit_cost || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-10 text-base"
+                        className="h-10 text-base min-w-[120px]"
                         disabled={isReadOnly}
                       />
                     </div>
