@@ -183,6 +183,7 @@ const CostSheetRecords = () => {
                           <TableHead className="min-w-[200px]">Item</TableHead>
                           <TableHead className="w-40">Supplier</TableHead>
                           <TableHead className="w-24">Qty</TableHead>
+                          <TableHead className="w-32">Supplier Unit Cost</TableHead>
                           <TableHead className="w-32">Total Cost</TableHead>
                           <TableHead className="w-32">Client Unit Cost</TableHead>
                           <TableHead className="w-24">Markup %</TableHead>
@@ -195,6 +196,7 @@ const CostSheetRecords = () => {
                       </TableHeader>
                       <TableBody>
                         {records.map((record) => {
+                          const supplierUnitCost = record.qty > 0 ? record.supplier_cost / record.qty : 0;
                           const clientUnitCost = record.qty > 0 ? record.actual_quoted / record.qty : 0;
                           const marginPercentage = record.actual_quoted > 0 
                             ? ((record.actual_quoted - record.total_cost) / record.actual_quoted) * 100 
@@ -207,6 +209,9 @@ const CostSheetRecords = () => {
                               <TableCell className="max-w-[300px]">{record.item}</TableCell>
                               <TableCell>{record.supplier_name}</TableCell>
                               <TableCell>{record.qty}</TableCell>
+                              <TableCell className="font-semibold text-muted-foreground">
+                                AED {supplierUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
                               <TableCell className="font-semibold">
                                 AED {record.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </TableCell>
