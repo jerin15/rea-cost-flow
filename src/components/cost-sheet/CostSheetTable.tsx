@@ -182,15 +182,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           misc_cost: item.misc_cost ?? 0,
           misc_type: item.misc_type ?? null,
           misc_description: item.misc_description ?? null,
-          admin_chosen_supplier_id: item.admin_chosen_supplier_id ?? null,
-          admin_chosen_misc_supplier_id: item.admin_chosen_misc_supplier_id ?? null,
-          admin_chosen_supplier_cost: item.admin_chosen_supplier_cost ?? 0,
-          admin_chosen_misc_cost: item.admin_chosen_misc_cost ?? 0,
-          admin_chosen_total_cost: item.admin_chosen_total_cost ?? 0,
-          admin_chosen_rea_margin: item.admin_chosen_rea_margin ?? 0,
-          admin_chosen_actual_quoted: item.admin_chosen_actual_quoted ?? 0,
-          admin_chosen_for_quotation: item.admin_chosen_for_quotation ?? false,
-          admin_quotation_notes: item.admin_quotation_notes ?? null,
         }));
         setItems(itemsWithDefaults);
         setCostSheetId(data[0].cost_sheet_id);
@@ -264,15 +255,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       actual_quoted: 0,
       approval_status: "pending",
       admin_remarks: "",
-      admin_chosen_supplier_id: null,
-      admin_chosen_misc_supplier_id: null,
-      admin_chosen_supplier_cost: 0,
-      admin_chosen_misc_cost: 0,
-      admin_chosen_total_cost: 0,
-      admin_chosen_rea_margin: 0,
-      admin_chosen_actual_quoted: 0,
-      admin_chosen_for_quotation: false,
-      admin_quotation_notes: null,
     };
     setItems([...items, newItem]);
   };
@@ -783,7 +765,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           </TableHeader>
           <TableBody>
             {items.map((item, index) => (
-              <>
               <TableRow key={index}>
                 <TableCell>{item.item_number}</TableCell>
                 <TableCell>
@@ -1004,269 +985,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                         </Button>
                       </>
                     )}
-                     {userRole === "admin" && (
-                      <>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="text-xs">
-                              {item.admin_chosen_for_quotation ? "✓ Quotation Set" : "Set Quotation"}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                              <DialogTitle>Admin Quotation Configuration - Item #{item.item_number}</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-6">
-                              <div className="p-4 bg-muted rounded-lg">
-                                <h3 className="font-semibold mb-2">Estimator's Original Selection</h3>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                  <div>
-                                    <span className="text-muted-foreground">Product Supplier:</span>
-                                    <p className="font-medium">{suppliers.find(s => s.id === item.supplier_id)?.name || "None"}</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Supplier Cost:</span>
-                                    <p className="font-medium">{item.supplier_cost} AED</p>
-                                  </div>
-                                  {item.misc_supplier_id && (
-                                    <>
-                                      <div>
-                                        <span className="text-muted-foreground">Misc Supplier:</span>
-                                        <p className="font-medium">{suppliers.find(s => s.id === item.misc_supplier_id)?.name || "None"}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Misc Cost:</span>
-                                        <p className="font-medium">{item.misc_cost} AED</p>
-                                      </div>
-                                    </>
-                                   )}
-                                  {item.misc_type && (
-                                    <div>
-                                      <span className="text-muted-foreground">Misc Type:</span>
-                                      <p className="font-medium">{item.misc_type}</p>
-                                    </div>
-                                  )}
-                                  {item.misc_description && (
-                                    <div className="col-span-2">
-                                      <span className="text-muted-foreground">Misc Description:</span>
-                                      <p className="font-medium">{item.misc_description}</p>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <span className="text-muted-foreground">Total Cost:</span>
-                                    <p className="font-medium">{item.total_cost} AED</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Quoted Price:</span>
-                                    <p className="font-medium">{item.actual_quoted} AED</p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="border-t pt-4">
-                                <h3 className="font-semibold mb-4 text-primary">Admin's Alternate Configuration</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label>Product Supplier (Optional Override)</Label>
-                                    <Select
-                                      value={item.admin_chosen_supplier_id || "same"}
-                                      onValueChange={(value) => {
-                                        const newSupplierId = value === "same" ? null : value;
-                                        updateItem(index, "admin_chosen_supplier_id", newSupplierId);
-                                        // Auto-fill supplier cost from original if choosing same supplier
-                                        if (newSupplierId === item.supplier_id || value === "same") {
-                                          updateItem(index, "admin_chosen_supplier_cost", item.supplier_cost);
-                                        }
-                                      }}
-                                    >
-                                      <SelectTrigger className="mt-1">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="same">Use Estimator's Choice</SelectItem>
-                                        {suppliers.map((supplier) => (
-                                          <SelectItem key={supplier.id} value={supplier.id}>
-                                            {supplier.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div>
-                                    <Label>Supplier Cost (AED)</Label>
-                                    <Input
-                                      type="number"
-                                      value={item.admin_chosen_supplier_cost || ""}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        updateItem(index, "admin_chosen_supplier_cost", val);
-                                        // Recalculate admin totals
-                                        const miscTotal = (item.admin_chosen_misc_cost || 0) * (item.misc_qty || 1);
-                                        const newTotal = val * (item.qty || 1) + miscTotal;
-                                        updateItem(index, "admin_chosen_total_cost", newTotal);
-                                        const margin = newTotal * ((item.rea_margin_percentage || 0) / 100);
-                                        updateItem(index, "admin_chosen_rea_margin", margin);
-                                        updateItem(index, "admin_chosen_actual_quoted", newTotal + margin);
-                                      }}
-                                      className="mt-1"
-                                      step="0.01"
-                                      disabled={!item.admin_chosen_supplier_id}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label>Misc Supplier (Optional Override)</Label>
-                                    <Select
-                                      value={item.admin_chosen_misc_supplier_id || "same"}
-                                      onValueChange={(value) => updateItem(index, "admin_chosen_misc_supplier_id", value === "same" ? null : value)}
-                                    >
-                                      <SelectTrigger className="mt-1">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="same">Use Estimator's Choice</SelectItem>
-                                        {suppliers.map((supplier) => (
-                                          <SelectItem key={supplier.id} value={supplier.id}>
-                                            {supplier.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div>
-                                    <Label>Misc Cost (AED)</Label>
-                                    <Input
-                                      type="number"
-                                      value={item.admin_chosen_misc_cost || ""}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        updateItem(index, "admin_chosen_misc_cost", val);
-                                        // Recalculate admin totals
-                                        const supplierTotal = (item.admin_chosen_supplier_cost || 0) * (item.qty || 1);
-                                        const newTotal = supplierTotal + val * (item.misc_qty || 1);
-                                        updateItem(index, "admin_chosen_total_cost", newTotal);
-                                        const margin = newTotal * ((item.rea_margin_percentage || 0) / 100);
-                                        updateItem(index, "admin_chosen_rea_margin", margin);
-                                        updateItem(index, "admin_chosen_actual_quoted", newTotal + margin);
-                                      }}
-                                      className="mt-1"
-                                      step="0.01"
-                                      disabled={!item.admin_chosen_misc_supplier_id}
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="mt-6 p-4 bg-primary/5 rounded-lg">
-                                  <h4 className="font-semibold mb-3">Final Quotation Price</h4>
-                                  <div className="grid grid-cols-3 gap-4 mb-4">
-                                    <div>
-                                      <span className="text-sm text-muted-foreground">Total Cost:</span>
-                                      <p className="text-lg font-bold">{(item.admin_chosen_total_cost || item.total_cost).toFixed(2)} AED</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-sm text-muted-foreground">Markup:</span>
-                                      <p className="text-lg font-bold text-primary">{(item.admin_chosen_rea_margin || item.rea_margin).toFixed(2)} AED</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-sm text-muted-foreground">Quoted Price:</span>
-                                      <p className="text-lg font-bold text-success">{(item.admin_chosen_actual_quoted || item.actual_quoted).toFixed(2)} AED</p>
-                                    </div>
-                                  </div>
-                                  <div className="space-y-3">
-                                    <div>
-                                      <Label>Override Quoted Price (Optional)</Label>
-                                      <Input
-                                        type="number"
-                                        value={item.admin_chosen_actual_quoted || ""}
-                                        onChange={(e) => updateItem(index, "admin_chosen_actual_quoted", parseFloat(e.target.value) || 0)}
-                                        className="mt-1"
-                                        step="0.01"
-                                        placeholder="Enter custom price"
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label>Instructions/Notes for Estimator</Label>
-                                      <Textarea
-                                        value={item.admin_quotation_notes || ""}
-                                        onChange={(e) => updateItem(index, "admin_quotation_notes", e.target.value)}
-                                        className="mt-1"
-                                        placeholder="Add any instructions or notes about this quotation..."
-                                      />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        id={`quotation-${index}`}
-                                        checked={item.admin_chosen_for_quotation}
-                                        onChange={(e) => updateItem(index, "admin_chosen_for_quotation", e.target.checked)}
-                                        className="h-4 w-4"
-                                      />
-                                      <Label htmlFor={`quotation-${index}`} className="font-semibold">
-                                        Use this configuration for client quotation
-                                      </Label>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </>
-                    )}
                   </div>
                 </TableCell>
               </TableRow>
-              {userRole === "estimator" && item.admin_chosen_for_quotation && (
-                <TableRow className="bg-primary/5 border-l-4 border-l-primary">
-                  <TableCell colSpan={17} className="py-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
-                          <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
-                          Admin's Selected Quotation Configuration
-                        </h4>
-                        <div className="grid grid-cols-4 gap-4 text-sm">
-                          {item.admin_chosen_supplier_id && (
-                            <div>
-                              <span className="text-muted-foreground">Product Supplier:</span>
-                              <p className="font-medium">{suppliers.find(s => s.id === item.admin_chosen_supplier_id)?.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.admin_chosen_supplier_cost} AED</p>
-                            </div>
-                          )}
-                          {item.admin_chosen_misc_supplier_id && (
-                            <div>
-                              <span className="text-muted-foreground">Misc Supplier:</span>
-                              <p className="font-medium">{suppliers.find(s => s.id === item.admin_chosen_misc_supplier_id)?.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.admin_chosen_misc_cost} AED</p>
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-muted-foreground">Total Cost:</span>
-                            <p className="font-bold">{item.admin_chosen_total_cost.toFixed(2)} AED</p>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Final Quoted Price:</span>
-                            <p className="font-bold text-success text-lg">{item.admin_chosen_actual_quoted.toFixed(2)} AED</p>
-                          </div>
-                        </div>
-                        {item.admin_quotation_notes && (
-                          <div className="mt-3 p-3 bg-background rounded border">
-                            <span className="text-xs font-semibold text-muted-foreground">ADMIN INSTRUCTIONS:</span>
-                            <p className="text-sm mt-1">{item.admin_quotation_notes}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-              </>
             ))}
           </TableBody>
         </Table>

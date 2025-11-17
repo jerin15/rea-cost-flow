@@ -157,8 +157,6 @@ const ApprovedCostSheets = () => {
         *,
         suppliers!cost_sheet_items_supplier_id_fkey(name),
         misc_suppliers:suppliers!cost_sheet_items_misc_supplier_id_fkey(name),
-        admin_chosen_suppliers:suppliers!cost_sheet_items_admin_chosen_supplier_id_fkey(name),
-        admin_chosen_misc_suppliers:suppliers!cost_sheet_items_admin_chosen_misc_supplier_id_fkey(name),
         cost_sheets!inner(client_id)
       `)
       .eq("cost_sheets.client_id", clientId)
@@ -177,18 +175,10 @@ const ApprovedCostSheets = () => {
         qty: item.qty,
         supplier_cost: item.supplier_cost,
         misc_cost: item.misc_cost || 0,
+        misc_qty: item.misc_qty || 1,
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
         actual_quoted: item.actual_quoted,
-        admin_chosen_for_quotation: item.admin_chosen_for_quotation || false,
-        admin_chosen_supplier_name: item.admin_chosen_suppliers?.name || null,
-        admin_chosen_misc_supplier_name: item.admin_chosen_misc_suppliers?.name || null,
-        admin_chosen_supplier_cost: item.admin_chosen_supplier_cost || 0,
-        admin_chosen_misc_cost: item.admin_chosen_misc_cost || 0,
-        admin_chosen_total_cost: item.admin_chosen_total_cost || 0,
-        admin_chosen_rea_margin: item.admin_chosen_rea_margin || 0,
-        admin_chosen_actual_quoted: item.admin_chosen_actual_quoted || 0,
-        admin_quotation_notes: item.admin_quotation_notes,
       })));
     }
   };
