@@ -37,6 +37,7 @@ interface CostSheetDetail {
   total_cost: number;
   rea_margin: number;
   actual_quoted: number;
+  admin_remarks: string | null;
 }
 
 const ApprovedCostSheets = () => {
@@ -179,6 +180,7 @@ const ApprovedCostSheets = () => {
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
         actual_quoted: item.actual_quoted,
+        admin_remarks: item.admin_remarks || null,
       })));
     }
   };
@@ -423,107 +425,66 @@ const ApprovedCostSheets = () => {
                           )}
                         </TableCell>
                         <TableCell className="min-w-[600px]">
-                          {item.admin_chosen_for_quotation ? (
-                            <div className="space-y-3 p-4 bg-success/5 rounded-lg border border-success/20">
-                              <div className="flex items-center gap-2 mb-3">
-                                <span className="text-success text-lg">✓</span>
-                                <h4 className="font-semibold text-success">Admin's Approved Quotation Configuration</h4>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="p-3 bg-background rounded border">
-                                  <span className="text-xs text-muted-foreground block mb-1">Product Supplier</span>
-                                  <p className="font-semibold">{item.admin_chosen_supplier_name || item.supplier_name}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-muted-foreground">Qty:</span>
-                                    <span className="font-medium">{item.qty}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground">Cost:</span>
-                                    <span className="font-bold text-primary">AED {(item.admin_chosen_supplier_cost || item.supplier_cost).toLocaleString()}</span>
-                                  </div>
-                                </div>
-
-                                <div className="p-3 bg-background rounded border">
-                                  <span className="text-xs text-muted-foreground block mb-1">Misc Supplier</span>
-                                  <p className="font-semibold">{item.admin_chosen_misc_supplier_name || item.misc_supplier_name || "None"}</p>
-                                  {item.misc_type && (
-                                    <div className="text-xs text-muted-foreground mt-1">Type: {item.misc_type}</div>
-                                  )}
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-muted-foreground">Cost:</span>
-                                    <span className="font-bold text-primary">AED {(item.admin_chosen_misc_cost || item.misc_cost).toLocaleString()}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-3 pt-3 border-t">
-                                <div className="p-3 bg-background rounded">
-                                  <span className="text-xs text-muted-foreground block mb-1">Total Cost</span>
-                                  <p className="text-lg font-bold">AED {((item.admin_chosen_supplier_cost || item.supplier_cost) + (item.admin_chosen_misc_cost || item.misc_cost)).toLocaleString()}</p>
-                                </div>
-                                <div className="p-3 bg-primary/10 rounded">
-                                  <span className="text-xs text-muted-foreground block mb-1">REA Margin</span>
-                                  <p className="text-lg font-bold text-primary">AED {(item.admin_chosen_rea_margin || item.rea_margin).toLocaleString()}</p>
-                                </div>
-                                <div className="p-3 bg-success/20 rounded border border-success">
-                                  <span className="text-xs text-muted-foreground block mb-1">Final Quoted Price</span>
-                                  <p className="text-lg font-bold text-success">AED {(item.admin_chosen_actual_quoted || item.actual_quoted).toLocaleString()}</p>
-                                </div>
-                              </div>
-
-                              {item.admin_quotation_notes && (
-                                <div className="p-3 bg-warning/10 rounded border border-warning/30 mt-3">
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-warning-foreground text-lg">📝</span>
-                                    <div className="flex-1">
-                                      <span className="text-sm font-semibold text-warning-foreground block">Admin's Instructions:</span>
-                                      <p className="text-sm mt-1">{item.admin_quotation_notes}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                          <div className="space-y-3 p-4 bg-success/5 rounded-lg border border-success/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-success text-lg">✓</span>
+                              <h4 className="font-semibold text-success">Approved Quotation Details</h4>
                             </div>
-                          ) : (
-                            <div className="space-y-2 text-sm">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <span className="text-muted-foreground">Estimator's Supplier:</span>
-                                  <p className="font-medium">{item.supplier_name}</p>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="p-3 bg-background rounded border">
+                                <span className="text-xs text-muted-foreground block mb-1">Product Supplier</span>
+                                <p className="font-semibold">{item.supplier_name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-muted-foreground">Qty:</span>
+                                  <span className="font-medium">{item.qty}</span>
                                 </div>
-                                <div>
-                                  <span className="text-muted-foreground">Supplier Cost:</span>
-                                  <p className="font-medium">AED {item.supplier_cost.toLocaleString()}</p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">Unit Cost:</span>
+                                  <span className="font-bold text-primary">AED {item.supplier_cost.toLocaleString()}</span>
                                 </div>
                               </div>
-                              {item.misc_supplier_name && (
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <span className="text-muted-foreground">Misc Supplier:</span>
-                                    <p className="font-medium">{item.misc_supplier_name}</p>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Misc Cost:</span>
-                                    <p className="font-medium">AED {item.misc_cost.toLocaleString()}</p>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-                                <div>
-                                  <span className="text-muted-foreground">Total Cost:</span>
-                                  <p className="font-bold">AED {item.total_cost.toLocaleString()}</p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">REA Margin:</span>
-                                  <p className="font-bold">AED {item.rea_margin.toLocaleString()}</p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Quoted:</span>
-                                  <p className="font-bold">AED {item.actual_quoted.toLocaleString()}</p>
+
+                              <div className="p-3 bg-background rounded border">
+                                <span className="text-xs text-muted-foreground block mb-1">Misc Supplier</span>
+                                <p className="font-semibold">{item.misc_supplier_name || "None"}</p>
+                                {item.misc_type && (
+                                  <div className="text-xs text-muted-foreground mt-1">Type: {item.misc_type}</div>
+                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-muted-foreground">Cost:</span>
+                                  <span className="font-bold text-primary">AED {item.misc_cost.toLocaleString()}</span>
                                 </div>
                               </div>
                             </div>
-                          )}
+
+                            <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                              <div className="p-3 bg-background rounded">
+                                <span className="text-xs text-muted-foreground block mb-1">Total Unit Cost</span>
+                                <p className="text-lg font-bold">AED {(item.supplier_cost + item.misc_cost).toLocaleString()}</p>
+                              </div>
+                              <div className="p-3 bg-primary/10 rounded">
+                                <span className="text-xs text-muted-foreground block mb-1">REA Margin</span>
+                                <p className="text-lg font-bold text-primary">AED {item.rea_margin.toLocaleString()}</p>
+                              </div>
+                              <div className="p-3 bg-success/20 rounded border border-success">
+                                <span className="text-xs text-muted-foreground block mb-1">Final Quoted Price</span>
+                                <p className="text-lg font-bold text-success">AED {item.actual_quoted.toLocaleString()}</p>
+                              </div>
+                            </div>
+
+                            {item.admin_remarks && (
+                              <div className="p-3 bg-warning/10 rounded border border-warning/30 mt-3">
+                                <div className="flex items-start gap-2">
+                                  <span className="text-warning-foreground text-lg">📝</span>
+                                  <div className="flex-1">
+                                    <span className="text-sm font-semibold text-warning-foreground block">Admin's Instructions:</span>
+                                    <p className="text-sm mt-1">{item.admin_remarks}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
