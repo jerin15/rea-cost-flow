@@ -351,16 +351,17 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       // Calculate totals based on selected suppliers
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
       const totalCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQty = selectedSuppliers.reduce((sum, s) => sum + s.qty, 0);
       const reaMargin = (totalCost * item.rea_margin_percentage) / 100;
       const actualQuoted = totalCost + reaMargin;
 
-      // Update the cost sheet item
+      // Update the cost sheet item with calculated quantity
       const { error: itemError } = await supabase
         .from("cost_sheet_items")
         .update({
           date: item.date,
           item: item.item,
-          qty: item.qty,
+          qty: totalQty,
           total_cost: totalCost,
           rea_margin: reaMargin,
           rea_margin_percentage: item.rea_margin_percentage,
@@ -607,8 +608,14 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           </TableHeader>
           <TableBody>
             {items.map((item, index) => {
-              // Calculate client unit cost: Quoted Price / Quantity
-              const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
+              // Calculate total quantity from selected suppliers
+              const selectedSuppliers = item.suppliers.filter(s => 
+                userRole === "admin" ? s.selected_by_admin : true
+              );
+              const totalQty = selectedSuppliers.reduce((sum, s) => sum + s.qty, 0);
+              
+              // Calculate client unit cost: Quoted Price / Total Quantity
+              const clientUnitCost = totalQty > 0 ? item.actual_quoted / totalQty : 0;
               
               // Calculate margin percentage: (Selling Price - Cost) / Selling Price * 100
               const marginPercentage = item.actual_quoted > 0 
