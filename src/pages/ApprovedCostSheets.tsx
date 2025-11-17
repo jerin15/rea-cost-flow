@@ -234,8 +234,9 @@ const ApprovedCostSheets = () => {
   const downloadCSV = (clientName: string) => {
     if (sheetDetails.length === 0) return;
 
-    const headers = ["#", "Date", "Item", "Supplier", "Qty", "Total Cost (AED)", "Client Unit Cost (AED)", "Markup %", "Markup (AED)", "Quoted Price (AED)", "Margin %", "Admin Remarks"];
+    const headers = ["#", "Date", "Item", "Supplier", "Qty", "Supplier Unit Cost (AED)", "Total Cost (AED)", "Client Unit Cost (AED)", "Markup %", "Markup (AED)", "Quoted Price (AED)", "Margin %", "Admin Remarks"];
     const rows = sheetDetails.map(item => {
+      const supplierUnitCost = item.qty > 0 ? item.supplier_cost / item.qty : 0;
       const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
       const marginPercentage = item.actual_quoted > 0 
         ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
@@ -247,6 +248,7 @@ const ApprovedCostSheets = () => {
         item.item,
         item.supplier_name,
         item.qty,
+        supplierUnitCost.toFixed(2),
         item.total_cost.toFixed(2),
         clientUnitCost.toFixed(2),
         item.rea_margin_percentage.toFixed(2),
@@ -287,6 +289,7 @@ const ApprovedCostSheets = () => {
     doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
 
     const tableData = sheetDetails.map(item => {
+      const supplierUnitCost = item.qty > 0 ? item.supplier_cost / item.qty : 0;
       const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
       const marginPercentage = item.actual_quoted > 0 
         ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
@@ -298,6 +301,7 @@ const ApprovedCostSheets = () => {
         item.item,
         item.supplier_name,
         item.qty,
+        `AED ${supplierUnitCost.toFixed(2)}`,
         `AED ${item.total_cost.toFixed(2)}`,
         `AED ${clientUnitCost.toFixed(2)}`,
         `${item.rea_margin_percentage.toFixed(2)}%`,
@@ -308,7 +312,7 @@ const ApprovedCostSheets = () => {
     });
 
     autoTable(doc, {
-      head: [["#", "Date", "Item", "Supplier", "Qty", "Total Cost", "Client Unit Cost", "Markup %", "Markup", "Quoted", "Margin %"]],
+      head: [["#", "Date", "Item", "Supplier", "Qty", "Supplier Unit Cost", "Total Cost", "Client Unit Cost", "Markup %", "Markup", "Quoted", "Margin %"]],
       body: tableData,
       startY: 35,
       styles: { fontSize: 7 },
@@ -428,6 +432,8 @@ const ApprovedCostSheets = () => {
                         <TableHead className="w-32">Date</TableHead>
                         <TableHead className="min-w-[200px]">Item</TableHead>
                         <TableHead className="min-w-[150px]">Suppliers</TableHead>
+                        <TableHead className="w-24">Qty</TableHead>
+                        <TableHead className="w-32">Supplier Unit Cost</TableHead>
                         <TableHead className="w-32">Total Cost</TableHead>
                         <TableHead className="w-32">Client Unit Cost</TableHead>
                         <TableHead className="w-24">Markup %</TableHead>
@@ -439,6 +445,7 @@ const ApprovedCostSheets = () => {
                     </TableHeader>
                     <TableBody>
                       {sheetDetails.map((item) => {
+                        const supplierUnitCost = item.qty > 0 ? item.supplier_cost / item.qty : 0;
                         const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
                         const marginPercentage = item.actual_quoted > 0 
                           ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
@@ -471,6 +478,10 @@ const ApprovedCostSheets = () => {
                                   </div>
                                 )}
                               </div>
+                            </TableCell>
+                            <TableCell>{item.qty}</TableCell>
+                            <TableCell className="font-semibold text-muted-foreground">
+                              AED {supplierUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell className="font-semibold">
                               AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
