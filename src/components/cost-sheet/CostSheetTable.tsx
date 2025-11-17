@@ -26,7 +26,6 @@ interface CostSheetItem {
   date: string;
   item: string;
   qty: number;
-  supplier_cost: number;  // Client's unit price
   rea_margin_percentage: number;
   rea_margin: number;
   total_cost: number;
@@ -185,7 +184,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           date: item.date,
           item: item.item,
           qty: item.qty,
-          supplier_cost: item.supplier_cost ?? 0,
           rea_margin_percentage: item.rea_margin_percentage ?? 0,
           rea_margin: item.rea_margin ?? 0,
           total_cost: item.total_cost ?? 0,
@@ -294,7 +292,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         date: newItem.date,
         item: newItem.item,
         qty: newItem.qty,
-        supplier_cost: 0,
         rea_margin_percentage: 0,
         rea_margin: 0,
         total_cost: 0,
@@ -318,28 +315,26 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     updated[index] = { ...updated[index], [field]: value };
 
     // Recalculate costs if needed
-    if (field === 'suppliers' || field === 'rea_margin_percentage' || field === 'actual_quoted' || field === 'supplier_cost') {
+    if (field === 'suppliers' || field === 'rea_margin_percentage' || field === 'actual_quoted') {
       const item = updated[index];
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
-      const totalSupplierCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
       
-      // Client's total cost is based on client unit price * qty
-      const totalClientCost = item.qty * (item.supplier_cost || 0);
-      item.total_cost = totalClientCost;
+      item.total_cost = totalCost;
 
       if (field === 'actual_quoted') {
         // User entered quoted price directly - calculate markup and margin
         const quotedPrice = parseFloat(value) || 0;
-        const markup = quotedPrice - totalClientCost;
-        const markupPercentage = totalClientCost > 0 ? (markup / totalClientCost) * 100 : 0;
+        const markup = quotedPrice - totalCost;
+        const markupPercentage = totalCost > 0 ? (markup / totalCost) * 100 : 0;
         
         item.actual_quoted = quotedPrice;
         item.rea_margin = markup;
         item.rea_margin_percentage = markupPercentage;
       } else {
-        // User changed markup percentage or client cost - calculate quoted price
-        item.rea_margin = (totalClientCost * item.rea_margin_percentage) / 100;
-        item.actual_quoted = totalClientCost + item.rea_margin;
+        // User changed markup percentage - calculate quoted price
+        item.rea_margin = (totalCost * item.rea_margin_percentage) / 100;
+        item.actual_quoted = totalCost + item.rea_margin;
       }
     }
 
@@ -353,12 +348,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setLoading(true);
 
     try {
-      // Calculate totals based on selected suppliers and client cost
+      // Calculate totals based on selected suppliers
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
-      const totalSupplierCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
-      const totalClientCost = item.qty * (item.supplier_cost || 0);
-      const reaMargin = (totalClientCost * item.rea_margin_percentage) / 100;
-      const actualQuoted = totalClientCost + reaMargin;
+      const totalCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const reaMargin = (totalCost * item.rea_margin_percentage) / 100;
+      const actualQuoted = totalCost + reaMargin;
 
       // Update the cost sheet item
       const { error: itemError } = await supabase
@@ -367,8 +361,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           date: item.date,
           item: item.item,
           qty: item.qty,
-          supplier_cost: item.supplier_cost,
-          total_cost: totalClientCost,
+          total_cost: totalCost,
           rea_margin: reaMargin,
           rea_margin_percentage: item.rea_margin_percentage,
           actual_quoted: actualQuoted,
@@ -598,10 +591,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead className="w-16">#</TableHead>
               <TableHead className="w-32">Date</TableHead>
               <TableHead className="min-w-[200px]">Item</TableHead>
-              <TableHead className="min-w-[400px]">Suppliers (Unit Cost)</TableHead>
-              <TableHead className="w-32">Total Supplier Cost</TableHead>
-              <TableHead className="w-32">Client Unit Price</TableHead>
-              <TableHead className="w-32">Total Client Cost</TableHead>
+              <TableHead className="min-w-[400px]">Suppliers</TableHead>
+              <TableHead className="w-32">Total Cost</TableHead>
+              <TableHead className="w-32">Client Unit Cost</TableHead>
               <TableHead className="w-24">Markup %</TableHead>
               <TableHead className="w-32">Markup (AED)</TableHead>
               <TableHead className="w-32">Quoted Price</TableHead>
@@ -615,14 +607,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           </TableHeader>
           <TableBody>
             {items.map((item, index) => {
-              // Calculate client's total cost from selected suppliers
-              const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
-              const totalSupplierCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
-              const totalClientCost = item.qty * (item.supplier_cost || 0);
+              // Calculate client unit cost: Quoted Price / Quantity
+              const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
               
               // Calculate margin percentage: (Selling Price - Cost) / Selling Price * 100
               const marginPercentage = item.actual_quoted > 0 
-                ? ((item.actual_quoted - totalClientCost) / item.actual_quoted) * 100 
+                ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
                 : 0;
 
               return (
@@ -654,26 +644,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       isReadOnly={isReadOnly}
                     />
                   </TableCell>
-                  <TableCell className="font-semibold text-muted-foreground">
-                    AED {totalSupplierCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Unit Price</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={item.supplier_cost || ""}
-                        onChange={(e) => updateItem(index, 'supplier_cost', parseFloat(e.target.value) || 0)}
-                        disabled={isReadOnly}
-                        className="w-32"
-                      />
-                    </div>
-                  </TableCell>
                   <TableCell className="font-semibold">
-                    AED {totalClientCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-semibold text-primary">
+                    AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell>
                     <Input
