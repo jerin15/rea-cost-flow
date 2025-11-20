@@ -481,27 +481,10 @@ const ApprovedCostSheets = () => {
                             </div>
                           </TableCell>
                             <TableCell>{item.qty}</TableCell>
-                            <TableCell className="font-semibold text-muted-foreground">
-                              AED {supplierUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold text-primary">
-                              AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              {item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                            </TableCell>
-                            <TableCell className="font-semibold text-primary">
-                              AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-bold text-success">
-                              AED {item.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold text-success">
-                              {marginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                            </TableCell>
+                            <TableCell>AED {item.total_cost.toFixed(2)}</TableCell>
+                            <TableCell className="font-bold">AED {item.actual_quoted.toFixed(2)}</TableCell>
+                            <TableCell>AED {item.rea_margin.toFixed(2)}</TableCell>
+                            <TableCell>{item.rea_margin_percentage.toFixed(2)}%</TableCell>
                             <TableCell>
                               {item.admin_remarks && (
                                 <div className="max-w-[200px] text-sm text-muted-foreground">
