@@ -644,12 +644,10 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 const supplierQuotedPrice = supplier.quoted_price;
                 const supplierMargin = supplierQuotedPrice - supplierCost;
                 
-                // Markup formula: (Quoted Price - Unit Price) / Unit Price
-                const supplierMarkupPercentage = supplierCost > 0 
-                  ? ((supplierQuotedPrice - supplierCost) / supplierCost) * 100 
-                  : 0;
+                // Use the stored markup percentage from the supplier
+                const supplierMarkupPercentage = supplier.markup_percentage || 0;
                 
-                // Margin formula: (Quoted Price - Unit Price) / Quoted Price
+                // Calculate margin: (Quoted Price - Cost) / Quoted Price * 100
                 const supplierMarginPercentage = supplierQuotedPrice > 0 
                   ? ((supplierQuotedPrice - supplierCost) / supplierQuotedPrice) * 100 
                   : 0;
