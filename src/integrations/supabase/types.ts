@@ -44,7 +44,9 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          markup_percentage: number
           qty: number
+          quoted_price: number
           selected_by_admin: boolean | null
           supplier_id: string
           supplier_type: string
@@ -56,7 +58,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          markup_percentage?: number
           qty?: number
+          quoted_price?: number
           selected_by_admin?: boolean | null
           supplier_id: string
           supplier_type: string
@@ -68,7 +72,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          markup_percentage?: number
           qty?: number
+          quoted_price?: number
           selected_by_admin?: boolean | null
           supplier_id?: string
           supplier_type?: string

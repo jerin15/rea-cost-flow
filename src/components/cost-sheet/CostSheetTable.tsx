@@ -176,6 +176,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               qty: s.qty,
               description: s.description || "",
               selected_by_admin: s.selected_by_admin,
+              quoted_price: s.quoted_price || 0,
+              markup_percentage: s.markup_percentage || 0,
             })) || [];
 
           return {
@@ -314,28 +316,29 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
 
-    // Recalculate costs if needed
-    if (field === 'suppliers' || field === 'rea_margin_percentage' || field === 'actual_quoted') {
+    // Recalculate costs if suppliers change
+    if (field === 'suppliers') {
       const item = updated[index];
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
+      
+      // Total cost = sum of all selected supplier costs
       const totalCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
       
+      // Total quoted price = sum of all selected supplier quoted prices
+      const totalQuotedPrice = selectedSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
+      
+      // Calculate REA's margin (Margin = (Selling Price - Cost) / Selling Price × 100)
+      const reaMarginAmount = totalQuotedPrice - totalCost;
+      const reaMarginPercentage = totalQuotedPrice > 0 ? (reaMarginAmount / totalQuotedPrice) * 100 : 0;
+      
       item.total_cost = totalCost;
-
-      if (field === 'actual_quoted') {
-        // User entered quoted price directly - calculate markup and margin
-        const quotedPrice = parseFloat(value) || 0;
-        const markup = quotedPrice - totalCost;
-        const markupPercentage = totalCost > 0 ? (markup / totalCost) * 100 : 0;
-        
-        item.actual_quoted = quotedPrice;
-        item.rea_margin = markup;
-        item.rea_margin_percentage = markupPercentage;
-      } else {
-        // User changed markup percentage - calculate quoted price
-        item.rea_margin = (totalCost * item.rea_margin_percentage) / 100;
-        item.actual_quoted = totalCost + item.rea_margin;
-      }
+      item.actual_quoted = totalQuotedPrice;
+      item.rea_margin = reaMarginAmount;
+      item.rea_margin_percentage = reaMarginPercentage;
+      
+      // Calculate total quantity for database update
+      const totalQty = selectedSuppliers.reduce((sum, s) => sum + s.qty, 0);
+      item.qty = totalQty;
     }
 
     setItems(updated);
@@ -348,14 +351,24 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setLoading(true);
 
     try {
-      // Calculate totals based on selected suppliers
+      // Validate that at least one supplier has been added
+      if (item.suppliers.length === 0) {
+        toast.error("Please add at least one supplier before saving");
+        setLoading(false);
+        return;
+      }
+
+      // Calculate totals from suppliers
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin || userRole === 'estimator');
       const totalCost = selectedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQuotedPrice = selectedSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
       const totalQty = selectedSuppliers.reduce((sum, s) => sum + s.qty, 0);
-      const reaMargin = (totalCost * item.rea_margin_percentage) / 100;
-      const actualQuoted = totalCost + reaMargin;
+      
+      // Calculate REA's margin (Margin = (Selling Price - Cost) / Selling Price × 100)
+      const reaMarginAmount = totalQuotedPrice - totalCost;
+      const reaMarginPercentage = totalQuotedPrice > 0 ? (reaMarginAmount / totalQuotedPrice) * 100 : 0;
 
-      // Update the cost sheet item with calculated quantity
+      // Update the cost sheet item
       const { error: itemError } = await supabase
         .from("cost_sheet_items")
         .update({
@@ -363,9 +376,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           item: item.item,
           qty: totalQty,
           total_cost: totalCost,
-          rea_margin: reaMargin,
-          rea_margin_percentage: item.rea_margin_percentage,
-          actual_quoted: actualQuoted,
+          rea_margin: reaMarginAmount,
+          rea_margin_percentage: reaMarginPercentage,
+          actual_quoted: totalQuotedPrice,
           admin_remarks: item.admin_remarks,
         })
         .eq("id", item.id);
@@ -395,6 +408,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           qty: s.qty,
           description: s.description,
           selected_by_admin: s.selected_by_admin,
+          quoted_price: s.quoted_price || 0,
+          markup_percentage: s.markup_percentage || 0,
         }));
 
         const { error: insertError } = await supabase
@@ -595,10 +610,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead className="min-w-[400px]">Suppliers</TableHead>
               <TableHead className="w-32">Total Cost</TableHead>
               <TableHead className="w-32">Client Unit Cost</TableHead>
-              <TableHead className="w-24">Markup %</TableHead>
-              <TableHead className="w-32">Markup (AED)</TableHead>
-              <TableHead className="w-32">Quoted Price</TableHead>
-              <TableHead className="w-24">Margin %</TableHead>
+              <TableHead className="w-32">Total Quoted</TableHead>
+              <TableHead className="w-32">REA's Margin (AED)</TableHead>
+              <TableHead className="w-24">REA's Margin %</TableHead>
               {userRole === "admin" && (
                 <TableHead className="min-w-[200px]">Admin Remarks</TableHead>
               )}
@@ -657,35 +671,14 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                   <TableCell className="font-semibold text-primary">
                     AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0"
-                      value={item.rea_margin_percentage || ""}
-                      onChange={(e) => updateItem(index, 'rea_margin_percentage', parseFloat(e.target.value) || 0)}
-                      disabled={isReadOnly}
-                      className="w-20"
-                    />
-                  </TableCell>
-                  <TableCell className="font-semibold text-primary">
-                    AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={item.actual_quoted || ""}
-                      onChange={(e) => updateItem(index, 'actual_quoted', parseFloat(e.target.value) || 0)}
-                      disabled={isReadOnly}
-                      className="w-32 font-bold"
-                    />
+                  <TableCell className="font-bold text-lg">
+                    AED {item.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell className="font-semibold text-success">
-                    {marginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                    AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-semibold text-success">
+                    {item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                   </TableCell>
                   {userRole === "admin" && (
                     <TableCell>
