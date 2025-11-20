@@ -656,14 +656,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       placeholder="Item description"
                     />
                   </TableCell>
-                  <TableCell>
-                    <ItemSupplierManager
-                      suppliers={suppliers}
-                      supplierOptions={item.suppliers}
-                      onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
-                      isAdmin={userRole === "admin"}
-                      isReadOnly={isReadOnly}
-                    />
+                  <TableCell className="align-top">
+                    <div className="max-w-[600px]">
+                      <ItemSupplierManager
+                        suppliers={suppliers}
+                        supplierOptions={item.suppliers}
+                        onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
+                        isAdmin={userRole === "admin"}
+                        isReadOnly={isReadOnly}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell className="font-semibold">
                     AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

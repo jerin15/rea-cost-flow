@@ -108,28 +108,33 @@ All colors MUST be HSL.
   }
 }
 
-/* Visible scrollbar styling */
+/* Visible scrollbar styling - Make it very visible */
 .scrollbar-visible {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--primary) / 0.3) hsl(var(--muted));
+  scrollbar-width: thick;
+  scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
+  overflow-x: scroll !important;
+  overflow-y: visible;
 }
 
 .scrollbar-visible::-webkit-scrollbar {
-  height: 12px;
+  height: 16px;
+  width: 16px;
 }
 
 .scrollbar-visible::-webkit-scrollbar-track {
   background: hsl(var(--muted));
-  border-radius: 6px;
+  border-radius: 8px;
+  border: 2px solid hsl(var(--border));
 }
 
 .scrollbar-visible::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.3);
-  border-radius: 6px;
+  background: hsl(var(--primary));
+  border-radius: 8px;
+  border: 2px solid hsl(var(--muted));
 }
 
 .scrollbar-visible::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.5);
+  background: hsl(var(--primary) / 0.8);
 }
 
 @layer base {

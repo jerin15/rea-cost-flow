@@ -102,11 +102,11 @@ export const ItemSupplierManager = ({
   const miscSuppliers = supplierOptions.filter(s => s.supplier_type === 'misc');
 
   return (
-    <div className="space-y-6 p-4 bg-muted/20 rounded-lg border">
-      <div className="overflow-x-scroll scrollbar-visible pb-2">
-        <div style={{ minWidth: '1200px' }}>
+    <div className="w-full">
+      <div className="overflow-x-scroll border border-border rounded-lg scrollbar-visible">
+        <div style={{ minWidth: '1200px' }} className="p-4 bg-muted/20">
           {/* Product Suppliers */}
-          <div className="space-y-3">
+          <div className="space-y-3 mb-6">
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-semibold text-primary">Product Suppliers</h4>
