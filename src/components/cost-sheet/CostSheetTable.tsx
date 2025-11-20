@@ -600,24 +600,25 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         )}
       </div>
 
-      <ScrollArea className="h-[calc(100vh-200px)]">
+      <div className="w-full overflow-x-auto scrollbar-visible">
+        <div style={{ minWidth: '1400px' }}>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16">#</TableHead>
-              <TableHead className="w-32">Date</TableHead>
-              <TableHead className="min-w-[200px]">Item</TableHead>
-              <TableHead className="min-w-[400px]">Suppliers</TableHead>
-              <TableHead className="w-32">Total Cost</TableHead>
-              <TableHead className="w-32">Client Unit Cost</TableHead>
-              <TableHead className="w-32">Total Quoted</TableHead>
-              <TableHead className="w-32">REA's Margin (AED)</TableHead>
-              <TableHead className="w-24">REA's Margin %</TableHead>
+              <TableHead className="w-20">#</TableHead>
+              <TableHead style={{ minWidth: '150px' }}>Date</TableHead>
+              <TableHead style={{ minWidth: '250px' }}>Item</TableHead>
+              <TableHead style={{ minWidth: '600px' }}>Suppliers</TableHead>
+              <TableHead style={{ minWidth: '150px' }}>Total Cost</TableHead>
+              <TableHead style={{ minWidth: '150px' }}>Client Unit Cost</TableHead>
+              <TableHead style={{ minWidth: '180px' }}>Total Quoted</TableHead>
+              <TableHead style={{ minWidth: '150px' }}>REA's Margin (AED)</TableHead>
+              <TableHead style={{ minWidth: '130px' }}>REA's Margin %</TableHead>
               {userRole === "admin" && (
-                <TableHead className="min-w-[200px]">Admin Remarks</TableHead>
+                <TableHead style={{ minWidth: '200px' }}>Admin Remarks</TableHead>
               )}
-              <TableHead className="w-32">Status</TableHead>
-              <TableHead className="w-32">Actions</TableHead>
+              <TableHead style={{ minWidth: '120px' }}>Status</TableHead>
+              <TableHead style={{ minWidth: '200px' }}>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -645,7 +646,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       value={item.date}
                       onChange={(e) => updateItem(index, 'date', e.target.value)}
                       disabled={isReadOnly}
-                      className="w-32"
+                      className="h-11 text-base"
+                      style={{ minWidth: '150px' }}
                     />
                   </TableCell>
                   <TableCell>
@@ -654,18 +656,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       onChange={(e) => updateItem(index, 'item', e.target.value)}
                       disabled={isReadOnly}
                       placeholder="Item description"
+                      className="h-11 text-base"
+                      style={{ minWidth: '250px' }}
                     />
                   </TableCell>
-                  <TableCell className="align-top">
-                    <div className="max-w-[600px]">
-                      <ItemSupplierManager
-                        suppliers={suppliers}
-                        supplierOptions={item.suppliers}
-                        onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
-                        isAdmin={userRole === "admin"}
-                        isReadOnly={isReadOnly}
-                      />
-                    </div>
+                  <TableCell className="align-top" style={{ minWidth: '600px' }}>
+                    <ItemSupplierManager
+                      suppliers={suppliers}
+                      supplierOptions={item.suppliers}
+                      onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
+                      isAdmin={userRole === "admin"}
+                      isReadOnly={isReadOnly}
+                    />
                   </TableCell>
                   <TableCell className="font-semibold">
                     AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -748,7 +750,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             })}
           </TableBody>
         </Table>
-      </ScrollArea>
+        </div>
+      </div>
 
       {items.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
