@@ -102,12 +102,18 @@ export const ItemSupplierManager = ({
   const miscSuppliers = supplierOptions.filter(s => s.supplier_type === 'misc');
 
   return (
-    <div className="space-y-6 p-4 bg-muted/20 rounded-lg border overflow-x-auto">
-      <div className="min-w-[1200px]">
-      {/* Product Suppliers */}
-      <div className="space-y-3">
+    <div className="space-y-6 p-4 bg-muted/20 rounded-lg border">
+      <div className="overflow-x-auto scrollbar-visible">
+        <div className="min-w-[1200px]">
+          {/* Product Suppliers */}
+          <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-primary">Product Suppliers</h4>
+          <div>
+            <h4 className="text-sm font-semibold text-primary">Product Suppliers</h4>
+            {isAdmin && (
+              <p className="text-xs text-muted-foreground mt-1">Click checkmarks to select one or multiple suppliers for quotation</p>
+            )}
+          </div>
           {!isReadOnly && (
             <Button
               size="sm"
@@ -242,30 +248,35 @@ export const ItemSupplierManager = ({
               </div>
             );
           })}
-        </div>
-      </div>
+            </div>
+          </div>
 
-      {/* Misc Suppliers */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-primary">Misc Suppliers</h4>
-          {!isReadOnly && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => addSupplier('misc')}
-              className="h-8"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Misc Supplier
-            </Button>
-          )}
-        </div>
-        <div className="space-y-3">
-          {miscSuppliers.length === 0 && (
-            <p className="text-sm text-muted-foreground italic py-4 text-center">No misc suppliers added yet</p>
-          )}
-          {miscSuppliers.map((supplier, idx) => {
+          {/* Misc Suppliers */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-primary">Misc Suppliers</h4>
+              {isAdmin && (
+                <p className="text-xs text-muted-foreground mt-1">Click checkmarks to select one or multiple suppliers for quotation</p>
+              )}
+            </div>
+              {!isReadOnly && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addSupplier('misc')}
+                  className="h-8"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Misc Supplier
+                </Button>
+              )}
+            </div>
+            <div className="space-y-3">
+              {miscSuppliers.length === 0 && (
+                <p className="text-sm text-muted-foreground italic py-4 text-center">No misc suppliers added yet</p>
+              )}
+              {miscSuppliers.map((supplier, idx) => {
             const globalIndex = supplierOptions.findIndex(s => s === supplier);
             return (
               <div
@@ -394,9 +405,10 @@ export const ItemSupplierManager = ({
                 </div>
               </div>
             );
-          })}
+              })}
+            </div>
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );
