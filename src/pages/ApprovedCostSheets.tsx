@@ -26,14 +26,16 @@ interface CostSheetDetail {
   item_number: number;
   date: string;
   item: string;
-  supplier_name: string;
-  misc_supplier_name: string | null;
-  misc_type: string | null;
-  misc_description: string | null;
   qty: number;
-  supplier_cost: number;
-  misc_cost: number;
-  misc_qty: number;
+  suppliers: {
+    name: string;
+    type: string;
+    unit_cost: number;
+    qty: number;
+    quoted_price: number;
+    markup_percentage: number;
+    description?: string;
+  }[];
   total_cost: number;
   rea_margin: number;
   rea_margin_percentage: number;
@@ -153,38 +155,64 @@ const ApprovedCostSheets = () => {
   };
 
   const fetchCostSheetDetails = async (clientId: string) => {
-    const { data, error } = await supabase
+    // Fetch cost sheet items
+    const { data: items, error: itemsError } = await supabase
       .from("cost_sheet_items")
       .select(`
         *,
-        suppliers!cost_sheet_items_supplier_id_fkey(name),
-        misc_suppliers:suppliers!cost_sheet_items_misc_supplier_id_fkey(name),
         cost_sheets!inner(client_id)
       `)
       .eq("cost_sheets.client_id", clientId)
       .eq("approval_status", "approved_both")
       .order("item_number");
 
-    if (!error && data) {
-      setSheetDetails(data.map((item: any) => ({
+    if (itemsError || !items) {
+      console.error("Error fetching items:", itemsError);
+      return;
+    }
+
+    // Fetch all supplier options for these items
+    const itemIds = items.map(item => item.id);
+    const { data: supplierOptions, error: supplierError } = await supabase
+      .from("cost_sheet_item_suppliers")
+      .select(`
+        *,
+        suppliers(name)
+      `)
+      .in("cost_sheet_item_id", itemIds)
+      .eq("selected_by_admin", true);
+
+    if (supplierError) {
+      console.error("Error fetching supplier options:", supplierError);
+    }
+
+    // Map items with their selected suppliers
+    const detailsWithSuppliers = items.map((item: any) => {
+      const itemSuppliers = supplierOptions?.filter(s => s.cost_sheet_item_id === item.id) || [];
+      
+      return {
         item_number: item.item_number,
         date: item.date,
         item: item.item,
-        supplier_name: item.suppliers?.name || "N/A",
-        misc_supplier_name: item.misc_suppliers?.name || null,
-        misc_type: item.misc_type,
-        misc_description: item.misc_description,
         qty: item.qty,
-        supplier_cost: item.supplier_cost,
-        misc_cost: item.misc_cost || 0,
-        misc_qty: item.misc_qty || 1,
+        suppliers: itemSuppliers.map(s => ({
+          name: s.suppliers?.name || "Unknown",
+          type: s.supplier_type,
+          unit_cost: s.unit_cost,
+          qty: s.qty,
+          quoted_price: s.quoted_price || 0,
+          markup_percentage: s.markup_percentage || 0,
+          description: s.description,
+        })),
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
         rea_margin_percentage: item.rea_margin_percentage || 0,
         actual_quoted: item.actual_quoted,
         admin_remarks: item.admin_remarks || null,
-      })));
-    }
+      };
+    });
+
+    setSheetDetails(detailsWithSuppliers);
   };
 
   const handleDeleteCostSheet = async (clientId: string, clientName: string) => {
@@ -234,27 +262,20 @@ const ApprovedCostSheets = () => {
   const downloadCSV = (clientName: string) => {
     if (sheetDetails.length === 0) return;
 
-    const headers = ["#", "Date", "Item", "Supplier", "Qty", "Supplier Unit Cost (AED)", "Total Cost (AED)", "Client Unit Cost (AED)", "Markup %", "Markup (AED)", "Quoted Price (AED)", "Margin %", "Admin Remarks"];
+    const headers = ["#", "Date", "Item", "Suppliers", "Total Qty", "Total Cost", "Total Quoted", "REA Margin", "REA Margin %", "Admin Remarks"];
     const rows = sheetDetails.map(item => {
-      const supplierUnitCost = item.qty > 0 ? item.supplier_cost / item.qty : 0;
-      const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
-      const marginPercentage = item.actual_quoted > 0 
-        ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
-        : 0;
+      const supplierNames = item.suppliers.map(s => `${s.name} (${s.type})`).join("; ");
       
       return [
         item.item_number,
         format(new Date(item.date), "dd/MM/yyyy"),
         item.item,
-        item.supplier_name,
+        supplierNames,
         item.qty,
-        supplierUnitCost.toFixed(2),
         item.total_cost.toFixed(2),
-        clientUnitCost.toFixed(2),
-        item.rea_margin_percentage.toFixed(2),
-        item.rea_margin.toFixed(2),
         item.actual_quoted.toFixed(2),
-        marginPercentage.toFixed(2),
+        item.rea_margin.toFixed(2),
+        item.rea_margin_percentage.toFixed(2),
         item.admin_remarks || "",
       ];
     });
@@ -289,30 +310,23 @@ const ApprovedCostSheets = () => {
     doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
 
     const tableData = sheetDetails.map(item => {
-      const supplierUnitCost = item.qty > 0 ? item.supplier_cost / item.qty : 0;
-      const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
-      const marginPercentage = item.actual_quoted > 0 
-        ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
-        : 0;
+      const supplierNames = item.suppliers.map(s => `${s.name} (${s.type})`).join(", ");
       
       return [
         item.item_number,
         format(new Date(item.date), "dd/MM/yyyy"),
         item.item,
-        item.supplier_name,
+        supplierNames,
         item.qty,
-        `AED ${supplierUnitCost.toFixed(2)}`,
         `AED ${item.total_cost.toFixed(2)}`,
-        `AED ${clientUnitCost.toFixed(2)}`,
-        `${item.rea_margin_percentage.toFixed(2)}%`,
-        `AED ${item.rea_margin.toFixed(2)}`,
         `AED ${item.actual_quoted.toFixed(2)}`,
-        `${marginPercentage.toFixed(2)}%`,
+        `AED ${item.rea_margin.toFixed(2)}`,
+        `${item.rea_margin_percentage.toFixed(2)}%`,
       ];
     });
 
     autoTable(doc, {
-      head: [["#", "Date", "Item", "Supplier", "Qty", "Supplier Unit Cost", "Total Cost", "Client Unit Cost", "Markup %", "Markup", "Quoted", "Margin %"]],
+      head: [["#", "Date", "Item", "Suppliers", "Qty", "Total Cost", "Total Quoted", "REA Margin", "Margin %"]],
       body: tableData,
       startY: 35,
       styles: { fontSize: 7 },
@@ -444,41 +458,28 @@ const ApprovedCostSheets = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sheetDetails.map((item) => {
-                        const supplierUnitCost = item.qty > 0 ? item.supplier_cost / item.qty : 0;
-                        const clientUnitCost = item.qty > 0 ? item.actual_quoted / item.qty : 0;
-                        const marginPercentage = item.actual_quoted > 0 
-                          ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
-                          : 0;
-
-                        return (
-                          <TableRow key={item.item_number}>
-                            <TableCell className="font-medium">{item.item_number}</TableCell>
-                            <TableCell className="whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{item.item}</p>
-                                {item.misc_description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{item.misc_description}</p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="text-sm">
-                                  <span className="font-medium">{item.supplier_name}</span>
-                                  <p className="text-xs text-muted-foreground">Qty: {item.qty}</p>
+                      {sheetDetails.map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{item.item_number}</TableCell>
+                          <TableCell className="whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
+                          <TableCell>
+                            <div className="max-w-md">{item.item}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {item.suppliers.map((s, idx) => (
+                                <div key={idx} className="text-sm">
+                                  <span className="font-medium">{s.name}</span>
+                                  <span className="text-muted-foreground"> ({s.type})</span>
+                                  <span className="text-xs block">
+                                    {s.qty} × AED {s.unit_cost.toFixed(2)} = AED {(s.qty * s.unit_cost).toFixed(2)}
+                                    {s.markup_percentage > 0 && ` | Markup: ${s.markup_percentage.toFixed(1)}%`}
+                                    {s.quoted_price > 0 && ` → AED ${s.quoted_price.toFixed(2)}`}
+                                  </span>
                                 </div>
-                                {item.misc_supplier_name && (
-                                  <div className="text-sm border-t pt-1">
-                                    <span className="font-medium">{item.misc_supplier_name}</span>
-                                    <p className="text-xs text-muted-foreground">
-                                      {item.misc_type} - Qty: {item.misc_qty}</p>
-                                  <div className="text-xs text-muted-foreground mt-1">Type: {item.misc_type}</div>
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
+                              ))}
+                            </div>
+                          </TableCell>
                             <TableCell>{item.qty}</TableCell>
                             <TableCell className="font-semibold text-muted-foreground">
                               AED {supplierUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -509,8 +510,7 @@ const ApprovedCostSheets = () => {
                               )}
                             </TableCell>
                           </TableRow>
-                        );
-                      })}
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
