@@ -632,131 +632,144 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((item, index) => {
-              // Calculate total quantity from selected suppliers
-              const selectedSuppliers = item.suppliers.filter(s => 
-                userRole === "admin" ? s.selected_by_admin : true
-              );
-              const totalQty = selectedSuppliers.reduce((sum, s) => sum + s.qty, 0);
-              
-              // Calculate client unit cost: Quoted Price / Total Quantity
-              const clientUnitCost = totalQty > 0 ? item.actual_quoted / totalQty : 0;
-              
-              // Calculate margin percentage: (Selling Price - Cost) / Selling Price * 100
-              const marginPercentage = item.actual_quoted > 0 
-                ? ((item.actual_quoted - item.total_cost) / item.actual_quoted) * 100 
-                : 0;
+            {items.map((item, itemIndex) => {
+              // Get relevant suppliers for display
+              const displaySuppliers = item.suppliers.length > 0 
+                ? item.suppliers 
+                : [{ id: 'placeholder', supplier_id: '', unit_cost: 0, qty: 0, quoted_price: 0, markup_percentage: 0, supplier_type: '', description: '', selected_by_admin: false }];
 
-              return (
-                <TableRow key={item.id || index}>
-                  <TableCell>{item.item_number}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="date"
-                      value={item.date}
-                      onChange={(e) => updateItem(index, 'date', e.target.value)}
-                      disabled={isReadOnly}
-                      className="h-11 text-base"
-                      style={{ minWidth: '150px' }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={item.item}
-                      onChange={(e) => updateItem(index, 'item', e.target.value)}
-                      disabled={isReadOnly}
-                      placeholder="Item description"
-                      className="h-11 text-base"
-                      style={{ minWidth: '250px' }}
-                    />
-                  </TableCell>
-                  <TableCell className="align-top" style={{ minWidth: '600px' }}>
-                    <ItemSupplierManager
-                      suppliers={suppliers}
-                      supplierOptions={item.suppliers}
-                      onSuppliersChange={(suppliers) => updateItem(index, 'suppliers', suppliers)}
-                      isAdmin={userRole === "admin"}
-                      isReadOnly={isReadOnly}
-                    />
-                  </TableCell>
-                  <TableCell className="font-semibold">
-                    AED {item.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="font-semibold text-primary">
-                    AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="font-bold text-lg">
-                    AED {item.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="font-semibold text-success">
-                    AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="font-semibold text-success">
-                    {item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                  </TableCell>
-                  {userRole === "admin" && (
-                    <TableCell>
-                      <Textarea
-                        value={item.admin_remarks}
-                        onChange={(e) => updateItem(index, 'admin_remarks', e.target.value)}
-                        placeholder="Admin remarks..."
-                        className="min-h-[60px]"
-                      />
+              return displaySuppliers.map((supplier, supplierIndex) => {
+                // Calculate individual supplier metrics
+                const supplierCost = supplier.unit_cost * supplier.qty;
+                const supplierQuotedPrice = supplier.quoted_price;
+                const supplierMargin = supplierQuotedPrice - supplierCost;
+                const supplierMarginPercentage = supplierQuotedPrice > 0 
+                  ? (supplierMargin / supplierQuotedPrice) * 100 
+                  : 0;
+                const clientUnitCost = supplier.qty > 0 ? supplierQuotedPrice / supplier.qty : 0;
+                
+                const isFirstSupplierRow = supplierIndex === 0;
+                const isPlaceholder = supplier.id === 'placeholder';
+
+                return (
+                  <TableRow key={`${item.id || itemIndex}-${supplier.id || supplierIndex}`}>
+                    {isFirstSupplierRow && (
+                      <>
+                        <TableCell rowSpan={displaySuppliers.length}>{item.item_number}</TableCell>
+                        <TableCell rowSpan={displaySuppliers.length}>
+                          <Input
+                            type="date"
+                            value={item.date}
+                            onChange={(e) => updateItem(itemIndex, 'date', e.target.value)}
+                            disabled={isReadOnly}
+                            className="h-11 text-base"
+                            style={{ minWidth: '150px' }}
+                          />
+                        </TableCell>
+                        <TableCell rowSpan={displaySuppliers.length}>
+                          <Input
+                            value={item.item}
+                            onChange={(e) => updateItem(itemIndex, 'item', e.target.value)}
+                            disabled={isReadOnly}
+                            placeholder="Item description"
+                            className="h-11 text-base"
+                            style={{ minWidth: '250px' }}
+                          />
+                        </TableCell>
+                        <TableCell rowSpan={displaySuppliers.length} className="align-top" style={{ minWidth: '600px' }}>
+                          <ItemSupplierManager
+                            suppliers={suppliers}
+                            supplierOptions={item.suppliers}
+                            onSuppliersChange={(suppliers) => updateItem(itemIndex, 'suppliers', suppliers)}
+                            isAdmin={userRole === "admin"}
+                            isReadOnly={isReadOnly}
+                          />
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell className="font-semibold">
+                      {isPlaceholder ? '-' : `AED ${supplierCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </TableCell>
-                  )}
-                  <TableCell>
-                    {getApprovalBadge(item.approval_status)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-2">
-                      {!isReadOnly && (
-                        <Button
-                          size="sm"
-                          onClick={() => saveItem(index)}
-                          disabled={loading}
-                        >
-                          <Save className="h-4 w-4 mr-1" />
-                          Save
-                        </Button>
-                      )}
-                      {userRole === "admin" && item.approval_status !== "approved_both" && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleApproval(index, true)}
-                            disabled={loading}
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleApproval(index, false)}
-                            disabled={loading}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                      {userRole === "estimator" && !isReadOnly && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteItem(index)}
-                          disabled={loading}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
+                    <TableCell className="font-semibold text-primary">
+                      {isPlaceholder ? '-' : `AED ${clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </TableCell>
+                    <TableCell className="font-bold text-lg">
+                      {isPlaceholder ? '-' : `AED ${supplierQuotedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </TableCell>
+                    <TableCell className="font-semibold text-success">
+                      {isPlaceholder ? '-' : `AED ${supplierMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </TableCell>
+                    <TableCell className="font-semibold text-success">
+                      {isPlaceholder ? '-' : `${supplierMarginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
+                    </TableCell>
+                    {userRole === "admin" && isFirstSupplierRow && (
+                      <TableCell rowSpan={displaySuppliers.length}>
+                        <Textarea
+                          value={item.admin_remarks}
+                          onChange={(e) => updateItem(itemIndex, 'admin_remarks', e.target.value)}
+                          placeholder="Admin remarks..."
+                          className="min-h-[60px]"
+                        />
+                      </TableCell>
+                    )}
+                    {isFirstSupplierRow && (
+                      <>
+                        <TableCell rowSpan={displaySuppliers.length}>
+                          {getApprovalBadge(item.approval_status)}
+                        </TableCell>
+                        <TableCell rowSpan={displaySuppliers.length}>
+                          <div className="flex flex-col gap-2">
+                            {!isReadOnly && (
+                              <Button
+                                size="sm"
+                                onClick={() => saveItem(itemIndex)}
+                                disabled={loading}
+                              >
+                                <Save className="h-4 w-4 mr-1" />
+                                Save
+                              </Button>
+                            )}
+                            {userRole === "admin" && item.approval_status !== "approved_both" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleApproval(itemIndex, true)}
+                                  disabled={loading}
+                                >
+                                  <Check className="h-4 w-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleApproval(itemIndex, false)}
+                                  disabled={loading}
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            {userRole === "estimator" && !isReadOnly && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => deleteItem(itemIndex)}
+                                disabled={loading}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                );
+              });
             })}
           </TableBody>
         </Table>
