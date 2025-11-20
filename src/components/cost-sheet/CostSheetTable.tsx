@@ -643,9 +643,17 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                 const supplierCost = supplier.unit_cost * supplier.qty;
                 const supplierQuotedPrice = supplier.quoted_price;
                 const supplierMargin = supplierQuotedPrice - supplierCost;
-                const supplierMarginPercentage = supplierQuotedPrice > 0 
-                  ? (supplierMargin / supplierQuotedPrice) * 100 
+                
+                // Markup formula: (Quoted Price - Unit Price) / Unit Price
+                const supplierMarkupPercentage = supplierCost > 0 
+                  ? ((supplierQuotedPrice - supplierCost) / supplierCost) * 100 
                   : 0;
+                
+                // Margin formula: (Quoted Price - Unit Price) / Quoted Price
+                const supplierMarginPercentage = supplierQuotedPrice > 0 
+                  ? ((supplierQuotedPrice - supplierCost) / supplierQuotedPrice) * 100 
+                  : 0;
+                  
                 const clientUnitCost = supplier.qty > 0 ? supplierQuotedPrice / supplier.qty : 0;
                 
                 const isFirstSupplierRow = supplierIndex === 0;
@@ -700,7 +708,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       {isPlaceholder ? '-' : `AED ${supplierMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </TableCell>
                     <TableCell className="font-semibold text-success">
-                      {isPlaceholder ? '-' : `${supplierMarginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
+                      {isPlaceholder ? '-' : (
+                        <div className="text-sm">
+                          <div>Markup: {supplierMarkupPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</div>
+                          <div className="text-muted-foreground">Margin: {supplierMarginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</div>
+                        </div>
+                      )}
                     </TableCell>
                     {userRole === "admin" && isFirstSupplierRow && (
                       <TableCell rowSpan={displaySuppliers.length}>
