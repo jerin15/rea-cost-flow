@@ -321,22 +321,24 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       const item = updated[index];
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin);
       
-      // If no suppliers selected yet, use first supplier's data for preview
-      const relevantSupplier = selectedSuppliers.length > 0 ? selectedSuppliers[0] : item.suppliers[0];
+      // Use selected suppliers if any, otherwise use all suppliers
+      const relevantSuppliers = selectedSuppliers.length > 0 ? selectedSuppliers : item.suppliers;
       
-      if (relevantSupplier) {
-        const cost = relevantSupplier.unit_cost * relevantSupplier.qty;
-        const quotedPrice = relevantSupplier.quoted_price;
+      if (relevantSuppliers.length > 0) {
+        // Sum up all relevant suppliers
+        const totalCost = relevantSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+        const totalQuotedPrice = relevantSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
+        const totalQty = relevantSuppliers.reduce((sum, s) => sum + s.qty, 0);
         
         // Calculate markup: Markup = (Selling Price - Cost) / Cost × 100
-        const markupAmount = quotedPrice - cost;
-        const markupPercentage = cost > 0 ? (markupAmount / cost) * 100 : 0;
+        const markupAmount = totalQuotedPrice - totalCost;
+        const markupPercentage = totalCost > 0 ? (markupAmount / totalCost) * 100 : 0;
         
-        item.total_cost = cost;
-        item.actual_quoted = quotedPrice;
+        item.total_cost = totalCost;
+        item.actual_quoted = totalQuotedPrice;
         item.rea_margin = markupAmount;
         item.rea_margin_percentage = markupPercentage;
-        item.qty = relevantSupplier.qty;
+        item.qty = totalQty;
       } else {
         item.total_cost = 0;
         item.actual_quoted = 0;
@@ -365,23 +367,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
       // Calculate totals from suppliers
       const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin);
-      const relevantSupplier = selectedSuppliers.length > 0 ? selectedSuppliers[0] : item.suppliers[0];
+      const relevantSuppliers = selectedSuppliers.length > 0 ? selectedSuppliers : item.suppliers;
       
-      let totalCost = 0;
-      let totalQuotedPrice = 0;
-      let totalQty = 0;
-      let reaMarginAmount = 0;
-      let reaMarginPercentage = 0;
+      // Sum up all relevant suppliers
+      const totalCost = relevantSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQuotedPrice = relevantSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
+      const totalQty = relevantSuppliers.reduce((sum, s) => sum + s.qty, 0);
       
-      if (relevantSupplier) {
-        totalCost = relevantSupplier.unit_cost * relevantSupplier.qty;
-        totalQuotedPrice = relevantSupplier.quoted_price;
-        totalQty = relevantSupplier.qty;
-        
-        // Calculate markup: Markup = (Selling Price - Cost) / Cost × 100
-        reaMarginAmount = totalQuotedPrice - totalCost;
-        reaMarginPercentage = totalCost > 0 ? (reaMarginAmount / totalCost) * 100 : 0;
-      }
+      // Calculate markup: Markup = (Selling Price - Cost) / Cost × 100
+      const reaMarginAmount = totalQuotedPrice - totalCost;
+      const reaMarginPercentage = totalCost > 0 ? (reaMarginAmount / totalCost) * 100 : 0;
 
       // Update the cost sheet item
       const { error: itemError } = await supabase
