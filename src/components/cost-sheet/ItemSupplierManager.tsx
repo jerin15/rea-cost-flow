@@ -103,8 +103,8 @@ export const ItemSupplierManager = ({
 
   return (
     <div className="space-y-6 p-4 bg-muted/20 rounded-lg border">
-      <div className="overflow-x-auto scrollbar-visible">
-        <div className="min-w-[1200px]">
+      <div className="overflow-x-scroll scrollbar-visible pb-2">
+        <div style={{ minWidth: '1200px' }}>
           {/* Product Suppliers */}
           <div className="space-y-3">
         <div className="flex items-center justify-between">
