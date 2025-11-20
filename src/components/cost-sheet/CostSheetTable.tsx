@@ -330,9 +330,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         const totalQuotedPrice = relevantSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
         const totalQty = relevantSuppliers.reduce((sum, s) => sum + s.qty, 0);
         
-        // Calculate markup: Markup = (Selling Price - Cost) / Cost × 100
+        // Calculate margin: Margin = (Selling Price - Cost) / Selling Price × 100
         const markupAmount = totalQuotedPrice - totalCost;
-        const markupPercentage = totalCost > 0 ? (markupAmount / totalCost) * 100 : 0;
+        const markupPercentage = totalQuotedPrice > 0 ? (markupAmount / totalQuotedPrice) * 100 : 0;
         
         item.total_cost = totalCost;
         item.actual_quoted = totalQuotedPrice;
@@ -374,9 +374,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       const totalQuotedPrice = relevantSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
       const totalQty = relevantSuppliers.reduce((sum, s) => sum + s.qty, 0);
       
-      // Calculate markup: Markup = (Selling Price - Cost) / Cost × 100
+      // Calculate margin: Margin = (Selling Price - Cost) / Selling Price × 100
       const reaMarginAmount = totalQuotedPrice - totalCost;
-      const reaMarginPercentage = totalCost > 0 ? (reaMarginAmount / totalCost) * 100 : 0;
+      const reaMarginPercentage = totalQuotedPrice > 0 ? (reaMarginAmount / totalQuotedPrice) * 100 : 0;
 
       // Update the cost sheet item
       const { error: itemError } = await supabase
