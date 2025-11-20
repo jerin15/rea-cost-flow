@@ -16,9 +16,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
+  <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4">
+        <div className="w-full px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-4">
               <img src={reaLogo} alt="REA" className="h-10 w-auto" />
@@ -70,7 +70,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </nav>
         </div>
       </header>
-      <main className="container mx-auto p-6">{children}</main>
+      <main className="w-full p-4">{children}</main>
     </div>
   );
 };
