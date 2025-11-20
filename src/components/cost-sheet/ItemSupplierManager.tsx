@@ -148,7 +148,7 @@ export const ItemSupplierManager = ({
                       </Button>
                     </div>
                   )}
-                  <div className={isAdmin ? "col-span-3" : "col-span-3"}>
+                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Supplier</Label>
                     <Select
                       value={supplier.supplier_id}
@@ -167,7 +167,7 @@ export const ItemSupplierManager = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-3"}>
+                  <div className={isAdmin ? "col-span-1" : "col-span-2"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Quantity</Label>
                     <Input
                       type="number"
@@ -180,7 +180,7 @@ export const ItemSupplierManager = ({
                       disabled={isReadOnly}
                     />
                   </div>
-                  <div className={isAdmin ? "col-span-3" : "col-span-3"}>
+                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                     <Label className="text-xs text-muted-foreground mb-1 block">Unit Price (AED)</Label>
                     <Input
                       type="number"
@@ -290,7 +290,7 @@ export const ItemSupplierManager = ({
                         </Button>
                       </div>
                     )}
-                    <div className={isAdmin ? "col-span-3" : "col-span-3"}>
+                    <div className={isAdmin ? "col-span-2" : "col-span-3"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Supplier</Label>
                       <Select
                         value={supplier.supplier_id}
@@ -309,7 +309,7 @@ export const ItemSupplierManager = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-3"}>
+                    <div className={isAdmin ? "col-span-1" : "col-span-2"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Quantity</Label>
                       <Input
                         type="number"
@@ -322,7 +322,7 @@ export const ItemSupplierManager = ({
                         disabled={isReadOnly}
                       />
                     </div>
-                    <div className={isAdmin ? "col-span-3" : "col-span-3"}>
+                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
                       <Label className="text-xs text-muted-foreground mb-1 block">Unit Price (AED)</Label>
                       <Input
                         type="number"
