@@ -109,8 +109,7 @@ const ApprovedCostSheets = () => {
           )
         )
       `)
-      .eq("approval_status", "approved")
-      .order("cost_sheet_items.date", { ascending: false });
+      .eq("approval_status", "approved");
 
     console.log("Approved suppliers query result:", { data: approvedSuppliers, error });
 
