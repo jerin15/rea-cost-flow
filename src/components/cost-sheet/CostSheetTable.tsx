@@ -33,8 +33,6 @@ interface CostSheetItem {
   approval_status: ApprovalStatus;
   admin_remarks: string;
   suppliers: ItemSupplierOption[];
-  markup_percentage: number;
-  markup_amount: number;
 }
 
 interface CostSheetTableProps {
@@ -178,13 +176,11 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               qty: s.qty,
               description: s.description || "",
               selected_by_admin: s.selected_by_admin,
+              markup_percentage: s.markup_percentage || 0,
+              markup_amount: (s.unit_cost * s.qty) * ((s.markup_percentage || 0) / 100),
+              quoted_price: s.quoted_price || 0,
               approval_status: s.approval_status || 'pending',
             })) || [];
-
-          // Calculate markup from item data
-          const subtotal = itemSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
-          const markup_amount = item.rea_margin ?? 0;
-          const markup_percentage = subtotal > 0 ? (markup_amount / subtotal) * 100 : 0;
 
           return {
           id: item.id,
@@ -199,8 +195,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           approval_status: item.approval_status,
           admin_remarks: item.admin_remarks || "",
           suppliers: itemSuppliers,
-          markup_percentage: markup_percentage,
-          markup_amount: markup_amount,
         };
         });
 
@@ -309,8 +303,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         approval_status: "pending",
         admin_remarks: "",
         suppliers: [],
-        markup_percentage: 0,
-        markup_amount: 0,
       }]);
 
       toast.success("New item added");
@@ -330,40 +322,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     if (field === 'suppliers') {
       const item = updated[index];
       
-      // Calculate subtotal from all suppliers
-      const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      // Sum up all supplier costs and quoted prices
+      const totalCost = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
       const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
       
-      item.total_cost = subtotal;
+      item.total_cost = totalCost;
+      item.actual_quoted = totalQuoted;
+      item.rea_margin = totalQuoted - totalCost;
+      item.rea_margin_percentage = totalQuoted > 0 ? ((totalQuoted - totalCost) / totalQuoted) * 100 : 0;
       item.qty = totalQty;
-      item.actual_quoted = subtotal + item.markup_amount;
     }
 
-    setItems(updated);
-  };
-
-  const updateMarkup = (index: number, field: 'percentage' | 'amount', value: number) => {
-    const updated = [...items];
-    const item = updated[index];
-    
-    const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
-    
-    if (field === 'percentage') {
-      // User entered markup percentage - calculate markup amount
-      item.markup_percentage = value;
-      item.markup_amount = subtotal * (value / 100);
-    } else {
-      // User entered markup amount - calculate markup percentage
-      item.markup_amount = value;
-      item.markup_percentage = subtotal > 0 ? (value / subtotal) * 100 : 0;
-    }
-    
-    // Update quoted price and margin
-    item.actual_quoted = subtotal + item.markup_amount;
-    item.rea_margin = item.markup_amount;
-    item.rea_margin_percentage = item.markup_percentage;
-    item.total_cost = subtotal;
-    
     setItems(updated);
   };
 
@@ -381,13 +351,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         return;
       }
 
-      // Calculate totals from suppliers
-      const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      // Calculate totals from all suppliers
+      const totalCost = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
       const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
       
-      const totalQuotedPrice = subtotal + item.markup_amount;
-      const reaMarginAmount = item.markup_amount;
-      const reaMarginPercentage = item.markup_percentage;
+      const reaMarginAmount = totalQuoted - totalCost;
+      const reaMarginPercentage = totalQuoted > 0 ? (reaMarginAmount / totalQuoted) * 100 : 0;
 
       // Update the cost sheet item
       const { error: itemError } = await supabase
@@ -396,10 +366,10 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           date: item.date,
           item: item.item,
           qty: totalQty,
-          total_cost: subtotal,
+          total_cost: totalCost,
           rea_margin: reaMarginAmount,
           rea_margin_percentage: reaMarginPercentage,
-          actual_quoted: totalQuotedPrice,
+          actual_quoted: totalQuoted,
           admin_remarks: item.admin_remarks,
         })
         .eq("id", item.id);
@@ -429,8 +399,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           qty: s.qty,
           description: s.description,
           selected_by_admin: s.selected_by_admin,
-          quoted_price: 0,
-          markup_percentage: 0,
+          quoted_price: s.quoted_price || 0,
+          markup_percentage: s.markup_percentage || 0,
         }));
 
         const { error: insertError } = await supabase
@@ -653,9 +623,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       onSuppliersChange={(suppliers) => updateItem(itemIndex, 'suppliers', suppliers)}
                       isAdmin={userRole === "admin"}
                       isReadOnly={isReadOnly}
-                      markupPercentage={item.markup_percentage}
-                      markupAmount={item.markup_amount}
-                      onMarkupChange={(field, value) => updateMarkup(itemIndex, field, value)}
                     />
                   </TableCell>
                   <TableCell className="font-semibold">
