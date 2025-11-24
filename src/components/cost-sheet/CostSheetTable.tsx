@@ -178,6 +178,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               selected_by_admin: s.selected_by_admin,
               quoted_price: s.quoted_price || 0,
               markup_percentage: s.markup_percentage || 0,
+              approval_status: s.approval_status || 'pending',
             })) || [];
 
           return {
@@ -497,66 +498,38 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setCostSheetStatus("submitted");
   };
 
-  const handleApproval = async (index: number, approved: boolean) => {
-    const item = items[index];
-    if (!item.id) return;
+  const handleSupplierApproval = async (supplierId: string, approved: boolean) => {
+    if (!supplierId) return;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Determine which admin is approving
-    const { data: userData } = await supabase
-      .from("user_roles")
-      .select("email")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const isAdminA = userData?.email === "anand@reaadvertising.com";
-    const isAdminB = userData?.email === "reena@reaadvertising.com";
-
-    let newStatus: ApprovalStatus = item.approval_status;
-    const updateData: any = {};
-
-    if (approved) {
-      if (isAdminA) {
-        updateData.approved_by_admin_a = true;
-        newStatus = item.approval_status === "approved_admin_b" ? "approved_both" : "approved_admin_a";
-      } else if (isAdminB) {
-        updateData.approved_by_admin_b = true;
-        newStatus = item.approval_status === "approved_admin_a" ? "approved_both" : "approved_admin_b";
-      }
-      updateData.approval_status = newStatus;
-    } else {
-      updateData.approval_status = "rejected";
-      updateData.approved_by_admin_a = false;
-      updateData.approved_by_admin_b = false;
-      newStatus = "rejected";
-    }
+    const newStatus = approved ? 'approved' : 'rejected';
 
     const { error } = await supabase
-      .from("cost_sheet_items")
-      .update(updateData)
-      .eq("id", item.id);
+      .from("cost_sheet_item_suppliers")
+      .update({ 
+        approval_status: newStatus,
+        approved_by: user.id,
+        approved_at: new Date().toISOString()
+      })
+      .eq("id", supplierId);
 
     if (error) {
-      toast.error("Failed to update approval status");
+      toast.error("Failed to update supplier approval");
       return;
     }
 
-    toast.success(approved ? "Item approved" : "Item rejected");
+    toast.success(approved ? "Supplier approved" : "Supplier rejected");
     fetchCostSheetItems();
   };
 
-  const getApprovalBadge = (status: ApprovalStatus) => {
+  const getSupplierApprovalBadge = (status: string | undefined) => {
     switch (status) {
-      case "approved_both":
-        return <Badge className="bg-success">Approved</Badge>;
-      case "approved_admin_a":
-        return <Badge className="bg-warning">Approved by Admin A</Badge>;
-      case "approved_admin_b":
-        return <Badge className="bg-warning">Approved by Admin B</Badge>;
+      case "approved":
+        return <Badge className="bg-success">✓ Approved</Badge>;
       case "rejected":
-        return <Badge variant="destructive">Rejected</Badge>;
+        return <Badge variant="destructive">✗ Rejected</Badge>;
       default:
         return <Badge variant="secondary">Pending</Badge>;
     }
@@ -624,10 +597,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               <TableHead style={{ minWidth: '180px' }}>Total Quoted</TableHead>
               <TableHead style={{ minWidth: '150px' }}>REA's Margin (AED)</TableHead>
               <TableHead style={{ minWidth: '130px' }}>REA's Margin %</TableHead>
+              <TableHead style={{ minWidth: '120px' }}>Supplier Status</TableHead>
+              {userRole === "admin" && (
+                <TableHead style={{ minWidth: '250px' }}>Supplier Actions</TableHead>
+              )}
               {userRole === "admin" && (
                 <TableHead style={{ minWidth: '200px' }}>Admin Remarks</TableHead>
               )}
-              <TableHead style={{ minWidth: '120px' }}>Status</TableHead>
               <TableHead style={{ minWidth: '200px' }}>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -713,6 +689,35 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                         </div>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {!isPlaceholder && getSupplierApprovalBadge(supplier.approval_status)}
+                    </TableCell>
+                    {userRole === "admin" && (
+                      <TableCell>
+                        {!isPlaceholder && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleSupplierApproval(supplier.id, true)}
+                              disabled={loading || supplier.approval_status === 'approved'}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleSupplierApproval(supplier.id, false)}
+                              disabled={loading || supplier.approval_status === 'rejected'}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    )}
                     {userRole === "admin" && isFirstSupplierRow && (
                       <TableCell rowSpan={displaySuppliers.length}>
                         <Textarea
@@ -724,59 +729,32 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                       </TableCell>
                     )}
                     {isFirstSupplierRow && (
-                      <>
-                        <TableCell rowSpan={displaySuppliers.length}>
-                          {getApprovalBadge(item.approval_status)}
-                        </TableCell>
-                        <TableCell rowSpan={displaySuppliers.length}>
-                          <div className="flex flex-col gap-2">
-                            {!isReadOnly && (
-                              <Button
-                                size="sm"
-                                onClick={() => saveItem(itemIndex)}
-                                disabled={loading}
-                              >
-                                <Save className="h-4 w-4 mr-1" />
-                                Save
-                              </Button>
-                            )}
-                            {userRole === "admin" && item.approval_status !== "approved_both" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleApproval(itemIndex, true)}
-                                  disabled={loading}
-                                >
-                                  <Check className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleApproval(itemIndex, false)}
-                                  disabled={loading}
-                                >
-                                  <X className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {userRole === "estimator" && !isReadOnly && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => deleteItem(itemIndex)}
-                                disabled={loading}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Delete
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </>
+                      <TableCell rowSpan={displaySuppliers.length}>
+                        <div className="flex flex-col gap-2">
+                          {!isReadOnly && (
+                            <Button
+                              size="sm"
+                              onClick={() => saveItem(itemIndex)}
+                              disabled={loading}
+                            >
+                              <Save className="h-4 w-4 mr-1" />
+                              Save
+                            </Button>
+                          )}
+                          {userRole === "estimator" && !isReadOnly && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => deleteItem(itemIndex)}
+                              disabled={loading}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     )}
                   </TableRow>
                 );

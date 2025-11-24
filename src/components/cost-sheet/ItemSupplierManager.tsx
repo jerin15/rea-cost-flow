@@ -23,6 +23,7 @@ export interface ItemSupplierOption {
   selected_by_admin: boolean;
   quoted_price: number;
   markup_percentage: number;
+  approval_status?: string;
 }
 
 interface ItemSupplierManagerProps {

@@ -40,6 +40,9 @@ export type Database = {
       }
       cost_sheet_item_suppliers: {
         Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           cost_sheet_item_id: string
           created_at: string
           description: string | null
@@ -54,6 +57,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           cost_sheet_item_id: string
           created_at?: string
           description?: string | null
@@ -68,6 +74,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           cost_sheet_item_id?: string
           created_at?: string
           description?: string | null
