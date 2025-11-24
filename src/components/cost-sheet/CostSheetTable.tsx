@@ -33,6 +33,8 @@ interface CostSheetItem {
   approval_status: ApprovalStatus;
   admin_remarks: string;
   suppliers: ItemSupplierOption[];
+  markup_percentage: number;
+  markup_amount: number;
 }
 
 interface CostSheetTableProps {
@@ -176,10 +178,13 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               qty: s.qty,
               description: s.description || "",
               selected_by_admin: s.selected_by_admin,
-              quoted_price: s.quoted_price || 0,
-              markup_percentage: s.markup_percentage || 0,
               approval_status: s.approval_status || 'pending',
             })) || [];
+
+          // Calculate markup from item data
+          const subtotal = itemSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+          const markup_amount = item.rea_margin ?? 0;
+          const markup_percentage = subtotal > 0 ? (markup_amount / subtotal) * 100 : 0;
 
           return {
           id: item.id,
@@ -194,6 +199,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           approval_status: item.approval_status,
           admin_remarks: item.admin_remarks || "",
           suppliers: itemSuppliers,
+          markup_percentage: markup_percentage,
+          markup_amount: markup_amount,
         };
         });
 
@@ -302,6 +309,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         approval_status: "pending",
         admin_remarks: "",
         suppliers: [],
+        markup_percentage: 0,
+        markup_amount: 0,
       }]);
 
       toast.success("New item added");
@@ -320,35 +329,41 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     // Recalculate costs if suppliers change
     if (field === 'suppliers') {
       const item = updated[index];
-      const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin);
       
-      // Use selected suppliers if any, otherwise use all suppliers
-      const relevantSuppliers = selectedSuppliers.length > 0 ? selectedSuppliers : item.suppliers;
+      // Calculate subtotal from all suppliers
+      const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
       
-      if (relevantSuppliers.length > 0) {
-        // Sum up all relevant suppliers
-        const totalCost = relevantSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
-        const totalQuotedPrice = relevantSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
-        const totalQty = relevantSuppliers.reduce((sum, s) => sum + s.qty, 0);
-        
-        // Calculate margin: Margin = (Selling Price - Cost) / Selling Price × 100
-        const markupAmount = totalQuotedPrice - totalCost;
-        const markupPercentage = totalQuotedPrice > 0 ? (markupAmount / totalQuotedPrice) * 100 : 0;
-        
-        item.total_cost = totalCost;
-        item.actual_quoted = totalQuotedPrice;
-        item.rea_margin = markupAmount;
-        item.rea_margin_percentage = markupPercentage;
-        item.qty = totalQty;
-      } else {
-        item.total_cost = 0;
-        item.actual_quoted = 0;
-        item.rea_margin = 0;
-        item.rea_margin_percentage = 0;
-        item.qty = 0;
-      }
+      item.total_cost = subtotal;
+      item.qty = totalQty;
+      item.actual_quoted = subtotal + item.markup_amount;
     }
 
+    setItems(updated);
+  };
+
+  const updateMarkup = (index: number, field: 'percentage' | 'amount', value: number) => {
+    const updated = [...items];
+    const item = updated[index];
+    
+    const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+    
+    if (field === 'percentage') {
+      // User entered markup percentage - calculate markup amount
+      item.markup_percentage = value;
+      item.markup_amount = subtotal * (value / 100);
+    } else {
+      // User entered markup amount - calculate markup percentage
+      item.markup_amount = value;
+      item.markup_percentage = subtotal > 0 ? (value / subtotal) * 100 : 0;
+    }
+    
+    // Update quoted price and margin
+    item.actual_quoted = subtotal + item.markup_amount;
+    item.rea_margin = item.markup_amount;
+    item.rea_margin_percentage = item.markup_percentage;
+    item.total_cost = subtotal;
+    
     setItems(updated);
   };
 
@@ -367,17 +382,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       }
 
       // Calculate totals from suppliers
-      const selectedSuppliers = item.suppliers.filter(s => s.selected_by_admin);
-      const relevantSuppliers = selectedSuppliers.length > 0 ? selectedSuppliers : item.suppliers;
+      const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
       
-      // Sum up all relevant suppliers
-      const totalCost = relevantSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
-      const totalQuotedPrice = relevantSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
-      const totalQty = relevantSuppliers.reduce((sum, s) => sum + s.qty, 0);
-      
-      // Calculate margin: Margin = (Selling Price - Cost) / Selling Price × 100
-      const reaMarginAmount = totalQuotedPrice - totalCost;
-      const reaMarginPercentage = totalQuotedPrice > 0 ? (reaMarginAmount / totalQuotedPrice) * 100 : 0;
+      const totalQuotedPrice = subtotal + item.markup_amount;
+      const reaMarginAmount = item.markup_amount;
+      const reaMarginPercentage = item.markup_percentage;
 
       // Update the cost sheet item
       const { error: itemError } = await supabase
@@ -386,7 +396,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           date: item.date,
           item: item.item,
           qty: totalQty,
-          total_cost: totalCost,
+          total_cost: subtotal,
           rea_margin: reaMarginAmount,
           rea_margin_percentage: reaMarginPercentage,
           actual_quoted: totalQuotedPrice,
@@ -419,8 +429,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           qty: s.qty,
           description: s.description,
           selected_by_admin: s.selected_by_admin,
-          quoted_price: s.quoted_price || 0,
-          markup_percentage: s.markup_percentage || 0,
+          quoted_price: 0,
+          markup_percentage: 0,
         }));
 
         const { error: insertError } = await supabase
@@ -609,93 +619,72 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           </TableHeader>
           <TableBody>
             {items.map((item, itemIndex) => {
-              // Get relevant suppliers for display
-              const displaySuppliers = item.suppliers.length > 0 
-                ? item.suppliers 
-                : [{ id: 'placeholder', supplier_id: '', unit_cost: 0, qty: 0, quoted_price: 0, markup_percentage: 0, supplier_type: '', description: '', selected_by_admin: false }];
+              const subtotal = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+              const quotedPrice = item.actual_quoted;
+              const clientUnitCost = item.qty > 0 ? quotedPrice / item.qty : 0;
 
-              return displaySuppliers.map((supplier, supplierIndex) => {
-                // Calculate individual supplier metrics
-                const supplierCost = supplier.unit_cost * supplier.qty;
-                const supplierQuotedPrice = supplier.quoted_price;
-                const supplierMargin = supplierQuotedPrice - supplierCost;
-                
-                // Use the stored markup percentage from the supplier
-                const supplierMarkupPercentage = supplier.markup_percentage || 0;
-                
-                // Calculate margin: (Quoted Price - Cost) / Quoted Price * 100
-                const supplierMarginPercentage = supplierQuotedPrice > 0 
-                  ? ((supplierQuotedPrice - supplierCost) / supplierQuotedPrice) * 100 
-                  : 0;
-                  
-                const clientUnitCost = supplier.qty > 0 ? supplierQuotedPrice / supplier.qty : 0;
-                
-                const isFirstSupplierRow = supplierIndex === 0;
-                const isPlaceholder = supplier.id === 'placeholder';
-
-                return (
-                  <TableRow key={`${item.id || itemIndex}-${supplier.id || supplierIndex}`}>
-                    {isFirstSupplierRow && (
-                      <>
-                        <TableCell rowSpan={displaySuppliers.length}>{item.item_number}</TableCell>
-                        <TableCell rowSpan={displaySuppliers.length}>
-                          <Input
-                            type="date"
-                            value={item.date}
-                            onChange={(e) => updateItem(itemIndex, 'date', e.target.value)}
-                            disabled={isReadOnly}
-                            className="h-11 text-base"
-                            style={{ minWidth: '150px' }}
-                          />
-                        </TableCell>
-                        <TableCell rowSpan={displaySuppliers.length}>
-                          <Input
-                            value={item.item}
-                            onChange={(e) => updateItem(itemIndex, 'item', e.target.value)}
-                            disabled={isReadOnly}
-                            placeholder="Item description"
-                            className="h-11 text-base"
-                            style={{ minWidth: '250px' }}
-                          />
-                        </TableCell>
-                        <TableCell rowSpan={displaySuppliers.length} className="align-top" style={{ minWidth: '600px' }}>
-                          <ItemSupplierManager
-                            suppliers={suppliers}
-                            supplierOptions={item.suppliers}
-                            onSuppliersChange={(suppliers) => updateItem(itemIndex, 'suppliers', suppliers)}
-                            isAdmin={userRole === "admin"}
-                            isReadOnly={isReadOnly}
-                          />
-                        </TableCell>
-                      </>
-                    )}
-                    <TableCell className="font-semibold">
-                      {isPlaceholder ? '-' : `AED ${supplierCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </TableCell>
-                    <TableCell className="font-semibold text-primary">
-                      {isPlaceholder ? '-' : `AED ${clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </TableCell>
-                    <TableCell className="font-bold text-lg">
-                      {isPlaceholder ? '-' : `AED ${supplierQuotedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </TableCell>
-                    <TableCell className="font-semibold text-success">
-                      {isPlaceholder ? '-' : `AED ${supplierMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </TableCell>
-                    <TableCell className="font-semibold text-success">
-                      {isPlaceholder ? '-' : (
-                        <div className="text-sm">
-                          <div>Markup: {supplierMarkupPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</div>
-                          <div className="text-muted-foreground">Margin: {supplierMarginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</div>
-                        </div>
-                      )}
-                    </TableCell>
+              return (
+                <TableRow key={item.id || itemIndex}>
+                  <TableCell>{item.item_number}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="date"
+                      value={item.date}
+                      onChange={(e) => updateItem(itemIndex, 'date', e.target.value)}
+                      disabled={isReadOnly}
+                      className="h-11 text-base"
+                      style={{ minWidth: '150px' }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={item.item}
+                      onChange={(e) => updateItem(itemIndex, 'item', e.target.value)}
+                      disabled={isReadOnly}
+                      placeholder="Item description"
+                      className="h-11 text-base"
+                      style={{ minWidth: '250px' }}
+                    />
+                  </TableCell>
+                  <TableCell className="align-top" style={{ minWidth: '600px' }}>
+                    <ItemSupplierManager
+                      suppliers={suppliers}
+                      supplierOptions={item.suppliers}
+                      onSuppliersChange={(suppliers) => updateItem(itemIndex, 'suppliers', suppliers)}
+                      isAdmin={userRole === "admin"}
+                      isReadOnly={isReadOnly}
+                      markupPercentage={item.markup_percentage}
+                      markupAmount={item.markup_amount}
+                      onMarkupChange={(field, value) => updateMarkup(itemIndex, field, value)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-semibold">
+                    AED {subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-semibold text-primary">
+                    AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-bold text-lg">
+                    AED {quotedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-semibold text-success">
+                    AED {item.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-semibold text-success">
+                    {item.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs space-y-1">
+                      {item.suppliers.map((s, i) => (
+                        <div key={i}>{getSupplierApprovalBadge(s.approval_status)}</div>
+                      ))}
+                    </div>
+                  </TableCell>
+                  {userRole === "admin" && (
                     <TableCell>
-                      {!isPlaceholder && getSupplierApprovalBadge(supplier.approval_status)}
-                    </TableCell>
-                    {userRole === "admin" && (
-                      <TableCell>
-                        {!isPlaceholder && (
-                          <div className="flex gap-2">
+                      <div className="space-y-2">
+                        {item.suppliers.map((supplier, i) => (
+                          <div key={i} className="flex gap-2">
                             <Button
                               size="sm"
                               variant="default"
@@ -715,50 +704,48 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                               Reject
                             </Button>
                           </div>
-                        )}
-                      </TableCell>
-                    )}
-                    {userRole === "admin" && isFirstSupplierRow && (
-                      <TableCell rowSpan={displaySuppliers.length}>
-                        <Textarea
-                          value={item.admin_remarks}
-                          onChange={(e) => updateItem(itemIndex, 'admin_remarks', e.target.value)}
-                          placeholder="Admin remarks..."
-                          className="min-h-[60px]"
-                        />
-                      </TableCell>
-                    )}
-                    {isFirstSupplierRow && (
-                      <TableCell rowSpan={displaySuppliers.length}>
-                        <div className="flex flex-col gap-2">
-                          {!isReadOnly && (
-                            <Button
-                              size="sm"
-                              onClick={() => saveItem(itemIndex)}
-                              disabled={loading}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          {userRole === "estimator" && !isReadOnly && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteItem(itemIndex)}
-                              disabled={loading}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              });
+                        ))}
+                      </div>
+                    </TableCell>
+                  )}
+                  {userRole === "admin" && (
+                    <TableCell>
+                      <Textarea
+                        value={item.admin_remarks}
+                        onChange={(e) => updateItem(itemIndex, 'admin_remarks', e.target.value)}
+                        placeholder="Admin remarks..."
+                        className="min-h-[60px]"
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      {!isReadOnly && (
+                        <Button
+                          size="sm"
+                          onClick={() => saveItem(itemIndex)}
+                          disabled={loading}
+                        >
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
+                        </Button>
+                      )}
+                      {userRole === "estimator" && !isReadOnly && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteItem(itemIndex)}
+                          disabled={loading}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
             })}
           </TableBody>
         </Table>

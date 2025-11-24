@@ -21,8 +21,6 @@ export interface ItemSupplierOption {
   qty: number;
   description?: string;
   selected_by_admin: boolean;
-  quoted_price: number;
-  markup_percentage: number;
   approval_status?: string;
 }
 
@@ -32,6 +30,9 @@ interface ItemSupplierManagerProps {
   onSuppliersChange: (suppliers: ItemSupplierOption[]) => void;
   isAdmin: boolean;
   isReadOnly: boolean;
+  markupPercentage: number;
+  markupAmount: number;
+  onMarkupChange: (field: 'percentage' | 'amount', value: number) => void;
 }
 
 export const ItemSupplierManager = ({
@@ -40,50 +41,25 @@ export const ItemSupplierManager = ({
   onSuppliersChange,
   isAdmin,
   isReadOnly,
+  markupPercentage,
+  markupAmount,
+  onMarkupChange,
 }: ItemSupplierManagerProps) => {
   const addSupplier = (type: 'product' | 'misc') => {
     const newSupplier: ItemSupplierOption = {
       supplier_id: suppliers[0]?.id || "",
       supplier_type: type,
       unit_cost: 0,
-      qty: type === 'product' ? 1 : 1,
+      qty: 1,
       description: "",
       selected_by_admin: false,
-      quoted_price: 0,
-      markup_percentage: 0,
     };
     onSuppliersChange([...supplierOptions, newSupplier]);
   };
 
   const updateSupplier = (index: number, field: keyof ItemSupplierOption, value: any) => {
     const updated = [...supplierOptions];
-    const supplier = { ...updated[index], [field]: value };
-    
-    // Auto-calculate based on what changed
-    const totalCost = supplier.unit_cost * supplier.qty;
-    
-    if (field === 'markup_percentage') {
-      // User entered markup% - calculate quoted price
-      // Markup = (Selling Price - Cost) / Cost × 100
-      // Selling Price = Cost × (1 + Markup/100)
-      const markup = parseFloat(value) || 0;
-      supplier.quoted_price = totalCost * (1 + markup / 100);
-    } else if (field === 'quoted_price') {
-      // User entered quoted price - calculate markup%
-      // Markup = (Selling Price - Cost) / Cost × 100
-      const quotedPrice = parseFloat(value) || 0;
-      supplier.markup_percentage = totalCost > 0 ? ((quotedPrice - totalCost) / totalCost) * 100 : 0;
-    } else if (field === 'unit_cost' || field === 'qty') {
-      // Cost changed - recalculate quoted price from markup%
-      if (supplier.markup_percentage > 0) {
-        supplier.quoted_price = totalCost * (1 + supplier.markup_percentage / 100);
-      } else if (supplier.quoted_price > 0) {
-        // Recalculate markup% from quoted price
-        supplier.markup_percentage = totalCost > 0 ? ((supplier.quoted_price - totalCost) / totalCost) * 100 : 0;
-      }
-    }
-    
-    updated[index] = supplier;
+    updated[index] = { ...updated[index], [field]: value };
     onSuppliersChange(updated);
   };
 
@@ -101,6 +77,12 @@ export const ItemSupplierManager = ({
 
   const productSuppliers = supplierOptions.filter(s => s.supplier_type === 'product');
   const miscSuppliers = supplierOptions.filter(s => s.supplier_type === 'misc');
+  
+  // Calculate subtotal from all suppliers
+  const subtotal = supplierOptions.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+  
+  // Calculate quoted price
+  const quotedPrice = subtotal + markupAmount;
 
   return (
     <div className="w-full bg-muted/20 rounded-lg border p-4">
@@ -206,42 +188,18 @@ export const ItemSupplierManager = ({
                       AED {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                    <Label className="text-sm font-medium mb-2 block">Markup %</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0"
-                      value={supplier.markup_percentage || ""}
-                      onChange={(e) => updateSupplier(globalIndex, 'markup_percentage', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-11 text-base w-full"
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-3"}>
-                    <Label className="text-sm font-medium mb-2 block">Quoted Price</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={supplier.quoted_price || ""}
-                      onChange={(e) => updateSupplier(globalIndex, 'quoted_price', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-11 text-base w-full font-bold"
-                      disabled={isReadOnly}
-                    />
-                  </div>
                   {!isReadOnly && (
-                    <div className="col-span-1 flex justify-end pt-9">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeSupplier(globalIndex)}
-                        className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
+                    <div className={isAdmin ? "col-span-3" : "col-span-4"}>
+                      <div className="flex justify-end pt-9">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeSupplier(globalIndex)}
+                          className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -353,42 +311,18 @@ export const ItemSupplierManager = ({
                         AED {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                      <Label className="text-sm font-medium mb-2 block">Markup %</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0"
-                        value={supplier.markup_percentage || ""}
-                        onChange={(e) => updateSupplier(globalIndex, 'markup_percentage', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-11 text-base w-full"
-                        disabled={isReadOnly}
-                      />
-                    </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-3"}>
-                      <Label className="text-sm font-medium mb-2 block">Quoted Price</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={supplier.quoted_price || ""}
-                        onChange={(e) => updateSupplier(globalIndex, 'quoted_price', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-11 text-base w-full font-bold"
-                        disabled={isReadOnly}
-                      />
-                    </div>
                     {!isReadOnly && (
-                      <div className="col-span-1 flex justify-end pt-9">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeSupplier(globalIndex)}
-                          className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
+                      <div className={isAdmin ? "col-span-3" : "col-span-4"}>
+                        <div className="flex justify-end pt-9">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeSupplier(globalIndex)}
+                            className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -408,7 +342,52 @@ export const ItemSupplierManager = ({
               })}
             </div>
           </div>
-        </div>
+
+          {/* Markup Section */}
+          <div className="space-y-3 pt-4 border-t-2">
+            <h4 className="text-sm font-semibold text-primary">Pricing</h4>
+            <div className="grid grid-cols-4 gap-4 bg-primary/5 p-4 rounded-lg">
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Subtotal (AED)</Label>
+                <div className="text-lg font-bold text-primary pt-2">
+                  {subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Markup %</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0"
+                  value={markupPercentage || ""}
+                  onChange={(e) => onMarkupChange('percentage', e.target.value ? parseFloat(e.target.value) : 0)}
+                  className="h-11 text-base w-full"
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Markup (AED)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={markupAmount || ""}
+                  onChange={(e) => onMarkupChange('amount', e.target.value ? parseFloat(e.target.value) : 0)}
+                  className="h-11 text-base w-full"
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Quoted Price (AED)</Label>
+                <div className="text-lg font-bold text-success pt-2">
+                  {quotedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
     </div>
   );
 };
