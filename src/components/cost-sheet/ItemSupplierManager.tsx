@@ -78,74 +78,68 @@ export const ItemSupplierManager = ({
   const productSuppliers = supplierOptions.filter(s => s.supplier_type === 'product');
   const miscSuppliers = supplierOptions.filter(s => s.supplier_type === 'misc');
   
-  // Calculate subtotal from all suppliers
-  const subtotal = supplierOptions.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+  // Calculate subtotals
+  const productSubtotal = productSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+  const miscSubtotal = miscSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+  const totalSubtotal = productSubtotal + miscSubtotal;
   
   // Calculate quoted price
-  const quotedPrice = subtotal + markupAmount;
+  const quotedPrice = totalSubtotal + markupAmount;
 
   return (
-    <div className="w-full bg-muted/20 rounded-lg border p-4">
-      <div className="space-y-6">
+    <div className="w-full bg-muted/20 rounded-lg border p-3">
+      <div className="space-y-4">
           {/* Product Suppliers */}
-          <div className="space-y-3">
+          <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-semibold text-primary">Product Suppliers</h4>
-            {isAdmin && (
-              <p className="text-xs text-muted-foreground mt-1">Click checkmarks to select one or multiple suppliers for quotation</p>
-            )}
-          </div>
+          <h4 className="text-sm font-semibold text-primary">Product Suppliers</h4>
           {!isReadOnly && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => addSupplier('product')}
-              className="h-8"
+              className="h-7 text-xs"
             >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Product Supplier
+              <Plus className="h-3 w-3 mr-1" />
+              Add
             </Button>
           )}
         </div>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {productSuppliers.length === 0 && (
-            <p className="text-sm text-muted-foreground italic py-4 text-center">No product suppliers added yet</p>
+            <p className="text-xs text-muted-foreground italic py-2 text-center">No product suppliers</p>
           )}
           {productSuppliers.map((supplier, idx) => {
             const globalIndex = supplierOptions.findIndex(s => s === supplier);
             return (
                 <div
                 key={globalIndex}
-                className={`p-4 rounded-lg border-2 ${
+                className={`p-2 rounded border ${
                   supplier.selected_by_admin 
-                    ? 'bg-success/10 border-success shadow-sm' 
+                    ? 'bg-success/10 border-success' 
                     : 'bg-background border-border'
                 }`}
               >
-                <div className="grid grid-cols-12 gap-4 items-start">
+                <div className="flex gap-2 items-center">
                   {isAdmin && (
-                    <div className="col-span-1 flex items-center justify-center pt-3">
-                      <Button
-                        size="sm"
-                        variant={supplier.selected_by_admin ? "default" : "outline"}
-                        onClick={() => toggleSelection(globalIndex)}
-                        className="h-10 w-10 p-0"
-                        title={supplier.selected_by_admin ? "Selected for quotation" : "Click to select"}
-                      >
-                        {supplier.selected_by_admin && <Check className="h-5 w-5" />}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant={supplier.selected_by_admin ? "default" : "outline"}
+                      onClick={() => toggleSelection(globalIndex)}
+                      className="h-8 w-8 p-0 shrink-0"
+                      title={supplier.selected_by_admin ? "Selected" : "Select"}
+                    >
+                      {supplier.selected_by_admin && <Check className="h-4 w-4" />}
+                    </Button>
                   )}
-                  <div className={isAdmin ? "col-span-3" : "col-span-3"}>
-                    <Label className="text-sm font-medium mb-2 block">Supplier</Label>
+                  <div className="flex-1 grid grid-cols-4 gap-2">
                     <Select
                       value={supplier.supplier_id}
                       onValueChange={(value) => updateSupplier(globalIndex, 'supplier_id', value)}
                       disabled={isReadOnly}
                     >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select supplier" />
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Supplier" />
                       </SelectTrigger>
                       <SelectContent>
                         {suppliers.map((s) => (
@@ -155,120 +149,104 @@ export const ItemSupplierManager = ({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                    <Label className="text-sm font-medium mb-2 block">Quantity</Label>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="0"
+                      placeholder="Qty"
                       value={supplier.qty || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-11 text-base w-full"
+                      className="h-8 text-xs"
                       disabled={isReadOnly}
                     />
-                  </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                    <Label className="text-sm font-medium mb-2 block">Unit Price (AED)</Label>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="0.00"
+                      placeholder="Unit Price"
                       value={supplier.unit_cost || ""}
                       onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                      className="h-11 text-base w-full"
+                      className="h-8 text-xs"
                       disabled={isReadOnly}
                     />
-                  </div>
-                  <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                    <Label className="text-sm font-medium mb-2 block">Total Cost</Label>
-                    <div className="text-base font-semibold text-right pt-3">
-                      AED {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="text-xs font-semibold flex items-center">
+                      {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
                   {!isReadOnly && (
-                    <div className={isAdmin ? "col-span-3" : "col-span-4"}>
-                      <div className="flex justify-end pt-9">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeSupplier(globalIndex)}
-                          className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </div>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeSupplier(globalIndex)}
+                      className="h-8 w-8 p-0 text-destructive shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
               </div>
             );
           })}
+          {productSuppliers.length > 0 && (
+            <div className="flex justify-end text-sm font-semibold text-primary pt-1">
+              Product Subtotal: AED {productSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
             </div>
           </div>
 
           {/* Misc Suppliers */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-            <div>
               <h4 className="text-sm font-semibold text-primary">Misc Suppliers</h4>
-              {isAdmin && (
-                <p className="text-xs text-muted-foreground mt-1">Click checkmarks to select one or multiple suppliers for quotation</p>
-              )}
-            </div>
               {!isReadOnly && (
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => addSupplier('misc')}
-                  className="h-8"
+                  className="h-7 text-xs"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Misc Supplier
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
                 </Button>
               )}
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {miscSuppliers.length === 0 && (
-                <p className="text-sm text-muted-foreground italic py-4 text-center">No misc suppliers added yet</p>
+                <p className="text-xs text-muted-foreground italic py-2 text-center">No misc suppliers</p>
               )}
               {miscSuppliers.map((supplier, idx) => {
             const globalIndex = supplierOptions.findIndex(s => s === supplier);
             return (
               <div
                 key={globalIndex}
-                className={`p-4 rounded-lg border-2 ${
+                className={`p-2 rounded border ${
                   supplier.selected_by_admin 
-                    ? 'bg-success/10 border-success shadow-sm' 
+                    ? 'bg-success/10 border-success' 
                     : 'bg-background border-border'
                 }`}
               >
-                <div className="space-y-3">
-                  <div className="grid grid-cols-12 gap-4 items-start">
+                <div className="space-y-2">
+                  <div className="flex gap-2 items-center">
                     {isAdmin && (
-                      <div className="col-span-1 flex items-center justify-center pt-3">
-                        <Button
-                          size="sm"
-                          variant={supplier.selected_by_admin ? "default" : "outline"}
-                          onClick={() => toggleSelection(globalIndex)}
-                          className="h-10 w-10 p-0"
-                          title={supplier.selected_by_admin ? "Selected for quotation" : "Click to select"}
-                        >
-                          {supplier.selected_by_admin && <Check className="h-5 w-5" />}
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant={supplier.selected_by_admin ? "default" : "outline"}
+                        onClick={() => toggleSelection(globalIndex)}
+                        className="h-8 w-8 p-0 shrink-0"
+                        title={supplier.selected_by_admin ? "Selected" : "Select"}
+                      >
+                        {supplier.selected_by_admin && <Check className="h-4 w-4" />}
+                      </Button>
                     )}
-                    <div className={isAdmin ? "col-span-3" : "col-span-3"}>
-                      <Label className="text-sm font-medium mb-2 block">Supplier</Label>
+                    <div className="flex-1 grid grid-cols-4 gap-2">
                       <Select
                         value={supplier.supplier_id}
                         onValueChange={(value) => updateSupplier(globalIndex, 'supplier_id', value)}
                         disabled={isReadOnly}
                       >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select supplier" />
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Supplier" />
                         </SelectTrigger>
                         <SelectContent>
                           {suppliers.map((s) => (
@@ -278,83 +256,70 @@ export const ItemSupplierManager = ({
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                      <Label className="text-sm font-medium mb-2 block">Quantity</Label>
                       <Input
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder="0"
+                        placeholder="Qty"
                         value={supplier.qty || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-11 text-base w-full"
+                        className="h-8 text-xs"
                         disabled={isReadOnly}
                       />
-                    </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                      <Label className="text-sm font-medium mb-2 block">Unit Price (AED)</Label>
                       <Input
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder="0.00"
+                        placeholder="Unit Price"
                         value={supplier.unit_cost || ""}
                         onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-11 text-base w-full"
+                        className="h-8 text-xs"
                         disabled={isReadOnly}
                       />
-                    </div>
-                    <div className={isAdmin ? "col-span-2" : "col-span-2"}>
-                      <Label className="text-sm font-medium mb-2 block">Total Cost</Label>
-                      <div className="text-base font-semibold text-right pt-3">
-                        AED {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div className="text-xs font-semibold flex items-center">
+                        {((supplier.unit_cost || 0) * (supplier.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </div>
                     {!isReadOnly && (
-                      <div className={isAdmin ? "col-span-3" : "col-span-4"}>
-                        <div className="flex justify-end pt-9">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeSupplier(globalIndex)}
-                            className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </Button>
-                        </div>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeSupplier(globalIndex)}
+                        className="h-8 w-8 p-0 text-destructive shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">Description</Label>
-                    <Textarea
-                      placeholder="Enter misc details..."
-                      value={supplier.description || ""}
-                      onChange={(e) => updateSupplier(globalIndex, 'description', e.target.value)}
-                      className="min-h-[80px] text-base"
-                      disabled={isReadOnly}
-                    />
-                  </div>
+                  <Textarea
+                    placeholder="Description..."
+                    value={supplier.description || ""}
+                    onChange={(e) => updateSupplier(globalIndex, 'description', e.target.value)}
+                    className="min-h-[50px] text-xs"
+                    disabled={isReadOnly}
+                  />
                 </div>
               </div>
             );
-              })}
+          })}
+          {miscSuppliers.length > 0 && (
+            <div className="flex justify-end text-sm font-semibold text-primary pt-1">
+              Misc Subtotal: AED {miscSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
             </div>
           </div>
 
-          {/* Markup Section */}
-          <div className="space-y-3 pt-4 border-t-2">
-            <h4 className="text-sm font-semibold text-primary">Pricing</h4>
-            <div className="grid grid-cols-4 gap-4 bg-primary/5 p-4 rounded-lg">
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Subtotal (AED)</Label>
-                <div className="text-lg font-bold text-primary pt-2">
-                  {subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
+          {/* Pricing Section */}
+          <div className="pt-2 border-t">
+            <div className="bg-primary/5 p-2 rounded flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-muted-foreground">Total:</span>
+                <span className="font-bold text-primary">AED {totalSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Markup %</Label>
+              <div className="h-4 w-px bg-border"></div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-muted-foreground">Markup %:</span>
                 <Input
                   type="number"
                   step="0.01"
@@ -362,28 +327,27 @@ export const ItemSupplierManager = ({
                   placeholder="0"
                   value={markupPercentage || ""}
                   onChange={(e) => onMarkupChange('percentage', e.target.value ? parseFloat(e.target.value) : 0)}
-                  className="h-11 text-base w-full"
+                  className="h-7 w-16 text-xs"
                   disabled={isReadOnly}
                 />
               </div>
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Markup (AED)</Label>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-muted-foreground">Markup AED:</span>
                 <Input
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="0.00"
+                  placeholder="0"
                   value={markupAmount || ""}
                   onChange={(e) => onMarkupChange('amount', e.target.value ? parseFloat(e.target.value) : 0)}
-                  className="h-11 text-base w-full"
+                  className="h-7 w-20 text-xs"
                   disabled={isReadOnly}
                 />
               </div>
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Quoted Price (AED)</Label>
-                <div className="text-lg font-bold text-success pt-2">
-                  {quotedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
+              <div className="h-4 w-px bg-border"></div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-muted-foreground">Quoted:</span>
+                <span className="font-bold text-success">AED {quotedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
