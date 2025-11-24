@@ -35,6 +35,7 @@ interface CostSheetDetail {
     quoted_price: number;
     markup_percentage: number;
     description?: string;
+    approval_status: string;
   }[];
   total_cost: number;
   rea_margin: number;
@@ -53,20 +54,20 @@ const ApprovedCostSheets = () => {
   useEffect(() => {
     fetchApprovedCostSheets();
 
-    // Real-time subscription for new approvals
+    // Real-time subscription for new approvals (supplier level)
     const channel = supabase
-      .channel('approved-items-changes')
+      .channel('approved-suppliers-changes')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'cost_sheet_items',
+          table: 'cost_sheet_item_suppliers',
         },
         (payload) => {
-          const newItem = payload.new as any;
-          if (newItem.approval_status === 'approved_both') {
-            // Refresh the list when new items are approved
+          const newSupplier = payload.new as any;
+          if (newSupplier.approval_status === 'approved') {
+            // Refresh the list when new suppliers are approved
             fetchApprovedCostSheets();
           }
         }
@@ -87,34 +88,31 @@ const ApprovedCostSheets = () => {
   const fetchApprovedCostSheets = async () => {
     setLoading(true);
     
-    // Get all approved items grouped by client
-    const { data: approvedItems, error } = await supabase
-      .from("cost_sheet_items")
+    // Get all items with at least one approved supplier
+    const { data: approvedSuppliers, error } = await supabase
+      .from("cost_sheet_item_suppliers")
       .select(`
         id,
-        date,
-        item,
-        supplier_id,
-        qty,
-        supplier_cost,
-        misc_cost,
-        total_cost,
-        rea_margin,
-        actual_quoted,
-        item_number,
-        cost_sheet_id,
-        cost_sheets!inner(
+        cost_sheet_item_id,
+        approval_status,
+        cost_sheet_items!inner(
           id,
-          client_id,
-          submitted_at,
-          clients!inner(name)
-        ),
-        suppliers!cost_sheet_items_supplier_id_fkey(name)
+          date,
+          item,
+          item_number,
+          cost_sheet_id,
+          cost_sheets!inner(
+            id,
+            client_id,
+            submitted_at,
+            clients!inner(name)
+          )
+        )
       `)
-      .eq("approval_status", "approved_both")
-      .order("date", { ascending: false });
+      .eq("approval_status", "approved")
+      .order("cost_sheet_items.date", { ascending: false });
 
-    console.log("Approved items query result:", { data: approvedItems, error });
+    console.log("Approved suppliers query result:", { data: approvedSuppliers, error });
 
     if (error) {
       console.error("Error fetching approved cost sheets:", error);
@@ -122,31 +120,37 @@ const ApprovedCostSheets = () => {
       return;
     }
 
-    if (approvedItems && approvedItems.length > 0) {
-      // Group items by client
-      const groupedByClient = approvedItems.reduce((acc, item: any) => {
-        const clientId = item.cost_sheets.client_id;
-        const clientName = item.cost_sheets.clients.name;
+    if (approvedSuppliers && approvedSuppliers.length > 0) {
+      // Group by client
+      const groupedByClient = approvedSuppliers.reduce((acc, supplier: any) => {
+        const clientId = supplier.cost_sheet_items.cost_sheets.client_id;
+        const clientName = supplier.cost_sheet_items.cost_sheets.clients.name;
         
         if (!acc[clientId]) {
           acc[clientId] = {
             id: clientId,
             client_id: clientId,
             client_name: clientName,
-            created_at: item.cost_sheets.submitted_at || new Date().toISOString(),
-            submitted_at: item.cost_sheets.submitted_at || new Date().toISOString(),
-            total_items: 0,
+            created_at: supplier.cost_sheet_items.cost_sheets.submitted_at || new Date().toISOString(),
+            submitted_at: supplier.cost_sheet_items.cost_sheets.submitted_at || new Date().toISOString(),
+            total_items: new Set(),
             total_cost: 0,
           };
         }
         
-        acc[clientId].total_items += 1;
-        acc[clientId].total_cost += Number(item.total_cost);
+        // Track unique items
+        acc[clientId].total_items.add(supplier.cost_sheet_item_id);
         
         return acc;
-      }, {} as Record<string, ApprovedCostSheet>);
+      }, {} as Record<string, any>);
 
-      setCostSheets(Object.values(groupedByClient));
+      // Convert sets to counts
+      const costSheetsArray = Object.values(groupedByClient).map((sheet: any) => ({
+        ...sheet,
+        total_items: sheet.total_items.size,
+      }));
+
+      setCostSheets(costSheetsArray);
     } else {
       setCostSheets([]);
     }
@@ -163,7 +167,6 @@ const ApprovedCostSheets = () => {
         cost_sheets!inner(client_id)
       `)
       .eq("cost_sheets.client_id", clientId)
-      .eq("approval_status", "approved_both")
       .order("item_number");
 
     if (itemsError || !items) {
@@ -171,7 +174,7 @@ const ApprovedCostSheets = () => {
       return;
     }
 
-    // Fetch all supplier options for these items
+    // Fetch all supplier options for these items (both approved and rejected)
     const itemIds = items.map(item => item.id);
     const { data: supplierOptions, error: supplierError } = await supabase
       .from("cost_sheet_item_suppliers")
@@ -179,14 +182,13 @@ const ApprovedCostSheets = () => {
         *,
         suppliers(name)
       `)
-      .in("cost_sheet_item_id", itemIds)
-      .eq("selected_by_admin", true);
+      .in("cost_sheet_item_id", itemIds);
 
     if (supplierError) {
       console.error("Error fetching supplier options:", supplierError);
     }
 
-    // Map items with their selected suppliers
+    // Map items with their suppliers (approved and rejected)
     const detailsWithSuppliers = items.map((item: any) => {
       const itemSuppliers = supplierOptions?.filter(s => s.cost_sheet_item_id === item.id) || [];
       
@@ -203,6 +205,7 @@ const ApprovedCostSheets = () => {
           quoted_price: s.quoted_price || 0,
           markup_percentage: s.markup_percentage || 0,
           description: s.description,
+          approval_status: s.approval_status || 'pending',
         })),
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
@@ -212,15 +215,20 @@ const ApprovedCostSheets = () => {
       };
     });
 
-    setSheetDetails(detailsWithSuppliers);
+    // Filter to only show items that have at least one approved supplier
+    const itemsWithApprovedSuppliers = detailsWithSuppliers.filter(
+      item => item.suppliers.some(s => s.approval_status === 'approved')
+    );
+
+    setSheetDetails(itemsWithApprovedSuppliers);
   };
 
   const handleDeleteCostSheet = async (clientId: string, clientName: string) => {
-    if (!confirm(`Are you sure you want to delete all approved cost sheets for ${clientName}?`)) {
+    if (!confirm(`Are you sure you want to reset all supplier approvals for ${clientName}?`)) {
       return;
     }
 
-    // First get all cost sheet IDs for this client
+    // Get all cost sheet IDs for this client
     const { data: costSheetData } = await supabase
       .from("cost_sheets")
       .select("id")
@@ -229,30 +237,49 @@ const ApprovedCostSheets = () => {
     if (!costSheetData || costSheetData.length === 0) {
       toast({
         title: "Info",
-        description: "No cost sheets found to delete",
+        description: "No cost sheets found",
       });
       return;
     }
 
     const costSheetIds = costSheetData.map(cs => cs.id);
 
-    // Delete all approved items for these cost sheets
-    const { error } = await supabase
+    // Get all item IDs from these cost sheets
+    const { data: itemsData } = await supabase
       .from("cost_sheet_items")
-      .delete()
-      .eq("approval_status", "approved_both")
+      .select("id")
       .in("cost_sheet_id", costSheetIds);
+
+    if (!itemsData || itemsData.length === 0) {
+      toast({
+        title: "Info",
+        description: "No items found",
+      });
+      return;
+    }
+
+    const itemIds = itemsData.map(item => item.id);
+
+    // Reset all supplier approvals to pending
+    const { error } = await supabase
+      .from("cost_sheet_item_suppliers")
+      .update({ 
+        approval_status: 'pending',
+        approved_by: null,
+        approved_at: null
+      })
+      .in("cost_sheet_item_id", itemIds);
 
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to delete cost sheets",
+        description: "Failed to reset approvals",
         variant: "destructive",
       });
     } else {
       toast({
         title: "Success",
-        description: "Cost sheets deleted successfully",
+        description: "All supplier approvals have been reset",
       });
       fetchApprovedCostSheets();
       setSelectedSheet(null);
@@ -389,6 +416,7 @@ const ApprovedCostSheets = () => {
                             variant="destructive"
                             size="sm"
                             onClick={() => handleDeleteCostSheet(sheet.client_id, sheet.client_name)}
+                            title="Reset all approvals for this client"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -469,8 +497,16 @@ const ApprovedCostSheets = () => {
                             <div className="space-y-1">
                               {item.suppliers.map((s, idx) => (
                                 <div key={idx} className="text-sm">
-                                  <span className="font-medium">{s.name}</span>
-                                  <span className="text-muted-foreground"> ({s.type})</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{s.name}</span>
+                                    <span className="text-muted-foreground">({s.type})</span>
+                                    {s.approval_status === 'approved' && (
+                                      <Badge className="bg-success text-xs">✓ Approved</Badge>
+                                    )}
+                                    {s.approval_status === 'rejected' && (
+                                      <Badge variant="destructive" className="text-xs">✗ Rejected</Badge>
+                                    )}
+                                  </div>
                                   <span className="text-xs block">
                                     {s.qty} × AED {s.unit_cost.toFixed(2)} = AED {(s.qty * s.unit_cost).toFixed(2)}
                                     {s.markup_percentage > 0 && ` | Markup: ${s.markup_percentage.toFixed(1)}%`}
