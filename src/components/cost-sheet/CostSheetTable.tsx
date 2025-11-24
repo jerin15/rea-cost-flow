@@ -322,8 +322,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     if (field === 'suppliers') {
       const item = updated[index];
       
-      // Sum up all supplier costs and quoted prices
-      const totalCost = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      // Sum up all supplier costs (including misc suppliers) and quoted prices
+      const totalCost = item.suppliers.reduce((sum, s) => {
+        const productCost = s.unit_cost * s.qty;
+        const miscCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + (misc.unit_cost * misc.qty), 0);
+        return sum + productCost + miscCost;
+      }, 0);
       const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
       const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
       
@@ -351,8 +355,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         return;
       }
 
-      // Calculate totals from all suppliers
-      const totalCost = item.suppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      // Calculate totals from all suppliers (including misc suppliers)
+      const totalCost = item.suppliers.reduce((sum, s) => {
+        const productCost = s.unit_cost * s.qty;
+        const miscCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + (misc.unit_cost * misc.qty), 0);
+        return sum + productCost + miscCost;
+      }, 0);
       const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
       const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
       
@@ -595,8 +603,10 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               return suppliersToDisplay.map((supplier, supplierIndex) => {
                 const isFirstSupplier = supplierIndex === 0;
                 
-                // Calculate individual supplier metrics
-                const supplierSubtotal = supplier ? (supplier.unit_cost * supplier.qty) : 0;
+                // Calculate individual supplier metrics (including misc suppliers)
+                const productCost = supplier ? (supplier.unit_cost * supplier.qty) : 0;
+                const miscCost = supplier ? (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0) : 0;
+                const supplierSubtotal = productCost + miscCost;
                 const supplierQuoted = supplier ? supplier.quoted_price : 0;
                 const supplierMargin = supplierQuoted - supplierSubtotal;
                 const supplierMarginPercentage = supplierQuoted > 0 ? (supplierMargin / supplierQuoted) * 100 : 0;
