@@ -37,6 +37,13 @@ interface CostSheetDetail {
     description?: string;
     approval_status: string;
   }[];
+  supplier_unit_cost: number;
+  total_supplier_cost: number;
+  client_unit_cost: number;
+  markup_percentage: number;
+  markup_amount: number;
+  quoted_price: number;
+  margin_percentage: number;
   total_cost: number;
   rea_margin: number;
   rea_margin_percentage: number;
@@ -134,6 +141,7 @@ const ApprovedCostSheets = () => {
             submitted_at: supplier.cost_sheet_items.cost_sheets.submitted_at || new Date().toISOString(),
             total_items: new Set(),
             total_cost: 0,
+            totalApprovedCost: 0,
           };
         }
         
@@ -142,6 +150,33 @@ const ApprovedCostSheets = () => {
         
         return acc;
       }, {} as Record<string, any>);
+
+      // Fetch detailed costs for calculation
+      const clientIds = Object.keys(groupedByClient);
+      for (const clientId of clientIds) {
+        const { data: items } = await supabase
+          .from("cost_sheet_items")
+          .select(`
+            id,
+            total_cost,
+            actual_quoted
+          `)
+          .eq("cost_sheets.client_id", clientId);
+
+        if (items && items.length > 0) {
+          const itemIds = items.map(item => item.id);
+          const { data: approvedSupplierCosts } = await supabase
+            .from("cost_sheet_item_suppliers")
+            .select("cost_sheet_item_id, unit_cost, qty, quoted_price")
+            .in("cost_sheet_item_id", itemIds)
+            .eq("approval_status", "approved");
+
+          if (approvedSupplierCosts && approvedSupplierCosts.length > 0) {
+            const totalCost = approvedSupplierCosts.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+            groupedByClient[clientId].total_cost = totalCost;
+          }
+        }
+      }
 
       // Convert sets to counts
       const costSheetsArray = Object.values(groupedByClient).map((sheet: any) => ({
@@ -190,6 +225,14 @@ const ApprovedCostSheets = () => {
     // Map items with their suppliers (approved and rejected)
     const detailsWithSuppliers = items.map((item: any) => {
       const itemSuppliers = supplierOptions?.filter(s => s.cost_sheet_item_id === item.id) || [];
+      const approvedSuppliers = itemSuppliers.filter(s => s.approval_status === 'approved');
+      
+      // Calculate totals from approved suppliers only
+      const totalSupplierCost = approvedSuppliers.reduce((sum, s) => sum + (s.unit_cost * s.qty), 0);
+      const totalQuotedPrice = approvedSuppliers.reduce((sum, s) => sum + s.quoted_price, 0);
+      const markupAmount = totalQuotedPrice - totalSupplierCost;
+      const markupPercentage = totalSupplierCost > 0 ? (markupAmount / totalSupplierCost) * 100 : 0;
+      const marginPercentage = totalQuotedPrice > 0 ? (markupAmount / totalQuotedPrice) * 100 : 0;
       
       return {
         item_number: item.item_number,
@@ -206,6 +249,13 @@ const ApprovedCostSheets = () => {
           description: s.description,
           approval_status: s.approval_status || 'pending',
         })),
+        supplier_unit_cost: approvedSuppliers.length > 0 ? approvedSuppliers[0].unit_cost : 0,
+        total_supplier_cost: totalSupplierCost,
+        client_unit_cost: totalQuotedPrice / (item.qty || 1),
+        markup_percentage: markupPercentage,
+        markup_amount: markupAmount,
+        quoted_price: totalQuotedPrice,
+        margin_percentage: marginPercentage,
         total_cost: item.total_cost,
         rea_margin: item.rea_margin,
         rea_margin_percentage: item.rea_margin_percentage || 0,
@@ -288,9 +338,10 @@ const ApprovedCostSheets = () => {
   const downloadCSV = (clientName: string) => {
     if (sheetDetails.length === 0) return;
 
-    const headers = ["#", "Date", "Item", "Suppliers", "Total Qty", "Total Cost", "Total Quoted", "REA Margin", "REA Margin %", "Admin Remarks"];
+    const headers = ["#", "Date", "Item", "Approved Suppliers", "Total Qty", "Supplier Unit Cost", "Total Supplier Cost", "Client Unit Cost", "Markup %", "Markup (AED)", "Quoted Price", "Margin %", "Admin Remarks"];
     const rows = sheetDetails.map(item => {
-      const supplierNames = item.suppliers.map(s => `${s.name} (${s.type})`).join("; ");
+      const approvedSuppliers = item.suppliers.filter(s => s.approval_status === 'approved');
+      const supplierNames = approvedSuppliers.map(s => `${s.name} (${s.type})`).join("; ");
       
       return [
         item.item_number,
@@ -298,10 +349,13 @@ const ApprovedCostSheets = () => {
         item.item,
         supplierNames,
         item.qty,
-        item.total_cost.toFixed(2),
-        item.actual_quoted.toFixed(2),
-        item.rea_margin.toFixed(2),
-        item.rea_margin_percentage.toFixed(2),
+        item.supplier_unit_cost.toFixed(2),
+        item.total_supplier_cost.toFixed(2),
+        item.client_unit_cost.toFixed(2),
+        item.markup_percentage.toFixed(2),
+        item.markup_amount.toFixed(2),
+        item.quoted_price.toFixed(2),
+        item.margin_percentage.toFixed(2),
         item.admin_remarks || "",
       ];
     });
@@ -336,7 +390,8 @@ const ApprovedCostSheets = () => {
     doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
 
     const tableData = sheetDetails.map(item => {
-      const supplierNames = item.suppliers.map(s => `${s.name} (${s.type})`).join(", ");
+      const approvedSuppliers = item.suppliers.filter(s => s.approval_status === 'approved');
+      const supplierNames = approvedSuppliers.map(s => `${s.name} (${s.type})`).join(", ");
       
       return [
         item.item_number,
@@ -344,18 +399,21 @@ const ApprovedCostSheets = () => {
         item.item,
         supplierNames,
         item.qty,
-        `AED ${item.total_cost.toFixed(2)}`,
-        `AED ${item.actual_quoted.toFixed(2)}`,
-        `AED ${item.rea_margin.toFixed(2)}`,
-        `${item.rea_margin_percentage.toFixed(2)}%`,
+        `AED ${item.supplier_unit_cost.toFixed(2)}`,
+        `AED ${item.total_supplier_cost.toFixed(2)}`,
+        `AED ${item.client_unit_cost.toFixed(2)}`,
+        `${item.markup_percentage.toFixed(2)}%`,
+        `AED ${item.markup_amount.toFixed(2)}`,
+        `AED ${item.quoted_price.toFixed(2)}`,
+        `${item.margin_percentage.toFixed(2)}%`,
       ];
     });
 
     autoTable(doc, {
-      head: [["#", "Date", "Item", "Suppliers", "Qty", "Total Cost", "Total Quoted", "REA Margin", "Margin %"]],
+      head: [["#", "Date", "Item", "Approved Suppliers", "Qty", "Supplier Unit Cost", "Total Supplier Cost", "Client Unit Cost", "Markup %", "Markup (AED)", "Quoted Price", "Margin %"]],
       body: tableData,
       startY: 35,
-      styles: { fontSize: 7 },
+      styles: { fontSize: 6 },
       headStyles: { fillColor: [59, 130, 246] },
     });
 
@@ -516,10 +574,13 @@ const ApprovedCostSheets = () => {
                             </div>
                           </TableCell>
                             <TableCell>{item.qty}</TableCell>
-                            <TableCell>AED {item.total_cost.toFixed(2)}</TableCell>
-                            <TableCell className="font-bold">AED {item.actual_quoted.toFixed(2)}</TableCell>
-                            <TableCell>AED {item.rea_margin.toFixed(2)}</TableCell>
-                            <TableCell>{item.rea_margin_percentage.toFixed(2)}%</TableCell>
+                            <TableCell>AED {item.supplier_unit_cost.toFixed(2)}</TableCell>
+                            <TableCell>AED {item.total_supplier_cost.toFixed(2)}</TableCell>
+                            <TableCell>AED {item.client_unit_cost.toFixed(2)}</TableCell>
+                            <TableCell>{item.markup_percentage.toFixed(2)}%</TableCell>
+                            <TableCell>AED {item.markup_amount.toFixed(2)}</TableCell>
+                            <TableCell>AED {item.quoted_price.toFixed(2)}</TableCell>
+                            <TableCell>{item.margin_percentage.toFixed(2)}%</TableCell>
                             <TableCell>
                               {item.admin_remarks && (
                                 <div className="max-w-[200px] text-sm text-muted-foreground">
