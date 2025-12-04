@@ -82,12 +82,16 @@ export const ItemSupplierManager = ({
       updated[productSupplierIndex].misc_suppliers = [];
     }
     updated[productSupplierIndex].misc_suppliers!.push(newMisc);
+    // Recalculate
+    recalculateSupplier(updated, productSupplierIndex);
     onSuppliersChange(updated);
   };
 
   const removeMiscSupplier = (productSupplierIndex: number, miscIndex: number) => {
     const updated = [...supplierOptions];
     updated[productSupplierIndex].misc_suppliers?.splice(miscIndex, 1);
+    // Recalculate after removal
+    recalculateSupplier(updated, productSupplierIndex);
     onSuppliersChange(updated);
   };
 
@@ -142,8 +146,14 @@ export const ItemSupplierManager = ({
       supplier.markup_amount = markupAmt;
       supplier.markup_percentage = subtotal > 0 ? (markupAmt / subtotal) * 100 : 0;
       supplier.quoted_price = subtotal + markupAmt;
+    } else if (field === 'quoted_price') {
+      // User entered quoted price directly - calculate markup from it
+      const quotedPrice = parseFloat(value) || 0;
+      supplier.quoted_price = quotedPrice;
+      supplier.markup_amount = quotedPrice - subtotal;
+      supplier.markup_percentage = subtotal > 0 ? (supplier.markup_amount / subtotal) * 100 : 0;
     } else if (field === 'unit_cost' || field === 'qty') {
-      // Cost changed - recalculate based on existing markup
+      // Cost changed - recalculate based on existing markup percentage
       if (supplier.markup_percentage > 0) {
         supplier.markup_amount = subtotal * (supplier.markup_percentage / 100);
         supplier.quoted_price = subtotal + supplier.markup_amount;
@@ -176,228 +186,296 @@ export const ItemSupplierManager = ({
   return (
     <div className="w-full bg-muted/20 rounded-lg border p-3">
       <div className="space-y-4">
-          {/* Product Suppliers */}
-          <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-primary">Suppliers</h4>
-          {!isReadOnly && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => addSupplier('product')}
-              className="h-7 text-xs"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Add Supplier
-            </Button>
-          )}
-        </div>
+        {/* Product Suppliers */}
         <div className="space-y-2">
-          {productSuppliers.length === 0 && (
-            <p className="text-xs text-muted-foreground italic py-2 text-center">No suppliers added</p>
-          )}
-          {productSuppliers.map((supplier, idx) => {
-            const globalIndex = supplierOptions.findIndex(s => s === supplier);
-            const productCost = supplier.unit_cost * supplier.qty;
-            const miscCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0);
-            const subtotal = productCost + miscCost;
-            
-            return (
-                <div
-                key={globalIndex}
-                className={`p-2 rounded border ${
-                  supplier.selected_by_admin 
-                    ? 'bg-success/10 border-success' 
-                    : 'bg-background border-border'
-                }`}
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-primary">Suppliers</h4>
+            {!isReadOnly && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => addSupplier('product')}
+                className="h-7 text-xs"
               >
-                <div className="space-y-2">
-                  {/* Product Supplier Row */}
-                  <div className="flex gap-2 items-center">
-                    {isAdmin && (
-                      <Button
-                        size="sm"
-                        variant={supplier.selected_by_admin ? "default" : "outline"}
-                        onClick={() => toggleSelection(globalIndex)}
-                        className="h-8 w-8 p-0 shrink-0"
-                        title={supplier.selected_by_admin ? "Selected" : "Select"}
-                      >
-                        {supplier.selected_by_admin && <Check className="h-4 w-4" />}
-                      </Button>
-                    )}
-                    <div className="flex-1 grid grid-cols-4 gap-2">
-                      <Select
-                        value={supplier.supplier_id}
-                        onValueChange={(value) => updateSupplier(globalIndex, 'supplier_id', value)}
-                        disabled={isReadOnly}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Supplier" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {suppliers.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Qty"
-                        value={supplier.qty || ""}
-                        onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-8 text-xs"
-                        disabled={isReadOnly}
-                      />
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Unit Price"
-                        value={supplier.unit_cost || ""}
-                        onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
-                        className="h-8 text-xs"
-                        disabled={isReadOnly}
-                      />
-                      <div className="text-xs font-semibold flex items-center">
-                        Product: {productCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <Plus className="h-3 w-3 mr-1" />
+                Add Supplier
+              </Button>
+            )}
+          </div>
+          <div className="space-y-3">
+            {productSuppliers.length === 0 && (
+              <p className="text-xs text-muted-foreground italic py-2 text-center">No suppliers added</p>
+            )}
+            {productSuppliers.map((supplier, idx) => {
+              const globalIndex = supplierOptions.findIndex(s => s === supplier);
+              const productCost = supplier.unit_cost * supplier.qty;
+              const miscCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0);
+              const subtotal = productCost + miscCost;
+              
+              return (
+                <div
+                  key={globalIndex}
+                  className={`p-3 rounded-lg border ${
+                    supplier.selected_by_admin 
+                      ? 'bg-success/10 border-success' 
+                      : 'bg-background border-border'
+                  }`}
+                >
+                  <div className="space-y-3">
+                    {/* Product Supplier Row */}
+                    <div className="flex gap-2 items-start">
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          variant={supplier.selected_by_admin ? "default" : "outline"}
+                          onClick={() => toggleSelection(globalIndex)}
+                          className="h-8 w-8 p-0 shrink-0 mt-1"
+                          title={supplier.selected_by_admin ? "Selected" : "Select"}
+                        >
+                          {supplier.selected_by_admin && <Check className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Supplier</Label>
+                            <Select
+                              value={supplier.supplier_id}
+                              onValueChange={(value) => updateSupplier(globalIndex, 'supplier_id', value)}
+                              disabled={isReadOnly}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Supplier" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {suppliers.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Qty</Label>
+                            <Input
+                              type="number"
+                              step="1"
+                              min="1"
+                              placeholder="Qty"
+                              value={supplier.qty || ""}
+                              onChange={(e) => updateSupplier(globalIndex, 'qty', e.target.value ? parseFloat(e.target.value) : "")}
+                              className="h-9 text-sm"
+                              disabled={isReadOnly}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Unit Cost</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Unit Cost"
+                              value={supplier.unit_cost || ""}
+                              onChange={(e) => updateSupplier(globalIndex, 'unit_cost', e.target.value ? parseFloat(e.target.value) : "")}
+                              className="h-9 text-sm"
+                              disabled={isReadOnly}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Total</Label>
+                            <div className="h-9 flex items-center px-2 bg-muted/50 rounded text-sm font-medium">
+                              {productCost.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Product Description */}
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Description</Label>
+                          <Textarea
+                            placeholder="Product details, color, size, branding, etc."
+                            value={supplier.description || ""}
+                            onChange={(e) => updateSupplier(globalIndex, 'description', e.target.value)}
+                            className="min-h-[50px] text-sm resize-none"
+                            disabled={isReadOnly}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    {!isReadOnly && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeSupplier(globalIndex)}
-                        className="h-8 w-8 p-0 text-destructive shrink-0"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {/* Misc Suppliers Section */}
-                  <div className="ml-10 space-y-2 bg-muted/30 p-2 rounded">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">Misc Items (Optional)</span>
                       {!isReadOnly && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => addMiscSupplier(globalIndex)}
-                          className="h-6 text-xs"
+                          onClick={() => removeSupplier(globalIndex)}
+                          className="h-8 w-8 p-0 text-destructive shrink-0"
                         >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Misc
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
-                    {(supplier.misc_suppliers || []).length === 0 && (
-                      <p className="text-xs text-muted-foreground italic text-center py-1">No misc items</p>
-                    )}
-                    {(supplier.misc_suppliers || []).map((misc, miscIdx) => (
-                      <div key={miscIdx} className="flex gap-2 items-center">
-                        <div className="flex-1 grid grid-cols-4 gap-2">
-                          <Select
-                            value={misc.supplier_id}
-                            onValueChange={(value) => updateMiscSupplier(globalIndex, miscIdx, 'supplier_id', value)}
-                            disabled={isReadOnly}
-                          >
-                            <SelectTrigger className="h-7 text-xs">
-                              <SelectValue placeholder="Supplier" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {suppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Qty"
-                            value={misc.qty || ""}
-                            onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'qty', e.target.value ? parseFloat(e.target.value) : 0)}
-                            className="h-7 text-xs"
-                            disabled={isReadOnly}
-                          />
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Unit Price"
-                            value={misc.unit_cost || ""}
-                            onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'unit_cost', e.target.value ? parseFloat(e.target.value) : 0)}
-                            className="h-7 text-xs"
-                            disabled={isReadOnly}
-                          />
-                          <div className="text-xs flex items-center">
-                            {((misc.unit_cost || 0) * (misc.qty || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                        </div>
+                    
+                    {/* Misc Suppliers Section */}
+                    <div className="ml-0 space-y-2 bg-muted/30 p-2 rounded">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Misc Items (Printing, etc.) - Optional</span>
                         {!isReadOnly && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => removeMiscSupplier(globalIndex, miscIdx)}
-                            className="h-7 w-7 p-0 text-destructive shrink-0"
+                            onClick={() => addMiscSupplier(globalIndex)}
+                            className="h-6 text-xs"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Misc
                           </Button>
                         )}
                       </div>
-                    ))}
-                    {miscCost > 0 && (
-                      <div className="text-xs font-semibold text-right text-muted-foreground pt-1">
-                        Misc Total: {miscCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Subtotal and Pricing */}
-                  <div className="bg-primary/5 p-2 rounded space-y-2">
-                    <div className="text-xs font-bold text-primary">
-                      Subtotal: AED {subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {(supplier.misc_suppliers || []).length === 0 && (
+                        <p className="text-xs text-muted-foreground italic text-center py-1">No misc items</p>
+                      )}
+                      {(supplier.misc_suppliers || []).map((misc, miscIdx) => (
+                        <div key={miscIdx} className="space-y-2 p-2 bg-background/50 rounded border border-border/50">
+                          <div className="flex gap-2 items-center">
+                            <div className="flex-1 grid grid-cols-4 gap-2">
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Supplier</Label>
+                                <Select
+                                  value={misc.supplier_id}
+                                  onValueChange={(value) => updateMiscSupplier(globalIndex, miscIdx, 'supplier_id', value)}
+                                  disabled={isReadOnly}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Supplier" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {suppliers.map((s) => (
+                                      <SelectItem key={s.id} value={s.id}>
+                                        {s.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Qty</Label>
+                                <Input
+                                  type="number"
+                                  step="1"
+                                  min="1"
+                                  placeholder="Qty"
+                                  value={misc.qty || ""}
+                                  onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'qty', e.target.value ? parseFloat(e.target.value) : 0)}
+                                  className="h-8 text-xs"
+                                  disabled={isReadOnly}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Unit Cost</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Unit Cost"
+                                  value={misc.unit_cost || ""}
+                                  onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'unit_cost', e.target.value ? parseFloat(e.target.value) : 0)}
+                                  className="h-8 text-xs"
+                                  disabled={isReadOnly}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Total</Label>
+                                <div className="h-8 flex items-center px-2 bg-muted/50 rounded text-xs font-medium">
+                                  {((misc.unit_cost || 0) * (misc.qty || 0)).toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                            {!isReadOnly && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeMiscSupplier(globalIndex, miscIdx)}
+                                className="h-8 w-8 p-0 text-destructive shrink-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                          {/* Misc Description */}
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Misc Description</Label>
+                            <Input
+                              placeholder="Printing type, color printing, etc."
+                              value={misc.description || ""}
+                              onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'description', e.target.value)}
+                              className="h-8 text-xs"
+                              disabled={isReadOnly}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {miscCost > 0 && (
+                        <div className="text-xs font-semibold text-right text-muted-foreground pt-1">
+                          Misc Total: {miscCost.toFixed(2)}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-muted-foreground">Markup %:</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0"
-                        value={supplier.markup_percentage || ""}
-                        onChange={(e) => updateSupplier(globalIndex, 'markup_percentage', e.target.value ? parseFloat(e.target.value) : 0)}
-                        className="h-7 w-16 text-xs"
-                        disabled={isReadOnly}
-                      />
-                      <span className="text-muted-foreground">AED:</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0"
-                        value={supplier.markup_amount || ""}
-                        onChange={(e) => updateSupplier(globalIndex, 'markup_amount', e.target.value ? parseFloat(e.target.value) : 0)}
-                        className="h-7 w-20 text-xs"
-                        disabled={isReadOnly}
-                      />
-                      <div className="ml-auto font-bold text-success">
-                        Quoted: {supplier.quoted_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                    {/* Subtotal and Pricing */}
+                    <div className="bg-primary/5 p-3 rounded space-y-2">
+                      <div className="text-sm font-bold text-primary">
+                        Subtotal: AED {subtotal.toFixed(2)}
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 items-end">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Markup %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0"
+                            value={supplier.markup_percentage || ""}
+                            onChange={(e) => updateSupplier(globalIndex, 'markup_percentage', e.target.value)}
+                            className="h-9 text-sm"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Markup AED</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0"
+                            value={supplier.markup_amount || ""}
+                            onChange={(e) => updateSupplier(globalIndex, 'markup_amount', e.target.value)}
+                            className="h-9 text-sm"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs text-muted-foreground">Quoted Price (or enter directly)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0"
+                            value={supplier.quoted_price || ""}
+                            onChange={(e) => updateSupplier(globalIndex, 'quoted_price', e.target.value)}
+                            className="h-9 text-sm font-bold text-success"
+                            disabled={isReadOnly}
+                          />
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Margin: AED {(supplier.quoted_price - subtotal).toFixed(2)} ({subtotal > 0 ? (((supplier.quoted_price - subtotal) / supplier.quoted_price) * 100).toFixed(1) : 0}%)
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-            </div>
+              );
+            })}
           </div>
+        </div>
       </div>
     </div>
   );
