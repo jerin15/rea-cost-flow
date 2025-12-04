@@ -16,8 +16,7 @@ export interface MiscSupplierOption {
   id?: string;
   supplier_id: string;
   supplier_name?: string;
-  unit_cost: number;
-  qty: number;
+  unit_cost: number; // Per-unit cost (uses product qty)
   description?: string;
 }
 
@@ -75,7 +74,6 @@ export const ItemSupplierManager = ({
     const newMisc: MiscSupplierOption = {
       supplier_id: suppliers[0]?.id || "",
       unit_cost: 0,
-      qty: 1,
       description: "",
     };
     if (!updated[productSupplierIndex].misc_suppliers) {
@@ -107,11 +105,13 @@ export const ItemSupplierManager = ({
 
   const recalculateSupplier = (updated: ItemSupplierOption[], index: number) => {
     const supplier = updated[index];
+    const qty = supplier.qty || 1;
     
-    // Calculate subtotal: product cost + all misc costs
-    const productCost = supplier.unit_cost * supplier.qty;
-    const miscCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0);
-    const subtotal = productCost + miscCost;
+    // Calculate subtotal: (product unit cost + all misc unit costs) × qty
+    const productUnitCost = supplier.unit_cost;
+    const miscUnitCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + misc.unit_cost, 0);
+    const combinedUnitCost = productUnitCost + miscUnitCost;
+    const subtotal = combinedUnitCost * qty;
     
     // Recalculate quoted price based on existing markup
     if (supplier.markup_percentage > 0) {
@@ -128,11 +128,13 @@ export const ItemSupplierManager = ({
   const updateSupplier = (index: number, field: keyof ItemSupplierOption, value: any) => {
     const updated = [...supplierOptions];
     const supplier = { ...updated[index], [field]: value };
+    const qty = supplier.qty || 1;
     
-    // Calculate subtotal for this supplier (product + misc)
-    const productCost = supplier.unit_cost * supplier.qty;
-    const miscCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0);
-    const subtotal = productCost + miscCost;
+    // Calculate subtotal for this supplier: (product unit cost + misc unit costs) × qty
+    const productUnitCost = supplier.unit_cost;
+    const miscUnitCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + misc.unit_cost, 0);
+    const combinedUnitCost = productUnitCost + miscUnitCost;
+    const subtotal = combinedUnitCost * qty;
     
     if (field === 'markup_percentage') {
       // User entered markup% - calculate markup amount and quoted price
@@ -208,9 +210,12 @@ export const ItemSupplierManager = ({
             )}
             {productSuppliers.map((supplier, idx) => {
               const globalIndex = supplierOptions.findIndex(s => s === supplier);
-              const productCost = supplier.unit_cost * supplier.qty;
-              const miscCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0);
-              const subtotal = productCost + miscCost;
+              const qty = supplier.qty || 1;
+              const productUnitCost = supplier.unit_cost;
+              const miscUnitCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + misc.unit_cost, 0);
+              const combinedUnitCost = productUnitCost + miscUnitCost;
+              const subtotal = combinedUnitCost * qty;
+              const clientUnitCost = qty > 0 ? supplier.quoted_price / qty : 0;
               
               return (
                 <div
@@ -270,7 +275,7 @@ export const ItemSupplierManager = ({
                             />
                           </div>
                           <div>
-                            <Label className="text-xs text-muted-foreground">Unit Cost</Label>
+                            <Label className="text-xs text-muted-foreground">Supplier Unit Cost</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -285,7 +290,7 @@ export const ItemSupplierManager = ({
                           <div>
                             <Label className="text-xs text-muted-foreground">Total</Label>
                             <div className="h-9 flex items-center px-2 bg-muted/50 rounded text-sm font-medium">
-                              {productCost.toFixed(2)}
+                              {(productUnitCost * qty).toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -317,7 +322,7 @@ export const ItemSupplierManager = ({
                     {/* Misc Suppliers Section */}
                     <div className="ml-0 space-y-2 bg-muted/30 p-2 rounded">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">Misc Items (Printing, etc.) - Optional</span>
+                        <span className="text-xs font-medium text-muted-foreground">Misc Costs (Printing, etc.) - per unit, Optional</span>
                         {!isReadOnly && (
                           <Button
                             size="sm"
@@ -331,14 +336,14 @@ export const ItemSupplierManager = ({
                         )}
                       </div>
                       {(supplier.misc_suppliers || []).length === 0 && (
-                        <p className="text-xs text-muted-foreground italic text-center py-1">No misc items</p>
+                        <p className="text-xs text-muted-foreground italic text-center py-1">No misc costs</p>
                       )}
                       {(supplier.misc_suppliers || []).map((misc, miscIdx) => (
                         <div key={miscIdx} className="space-y-2 p-2 bg-background/50 rounded border border-border/50">
                           <div className="flex gap-2 items-center">
-                            <div className="flex-1 grid grid-cols-4 gap-2">
+                            <div className="flex-1 grid grid-cols-3 gap-2">
                               <div>
-                                <Label className="text-xs text-muted-foreground">Supplier</Label>
+                                <Label className="text-xs text-muted-foreground">Misc Supplier</Label>
                                 <Select
                                   value={misc.supplier_id}
                                   onValueChange={(value) => updateMiscSupplier(globalIndex, miscIdx, 'supplier_id', value)}
@@ -357,25 +362,12 @@ export const ItemSupplierManager = ({
                                 </Select>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Qty</Label>
-                                <Input
-                                  type="number"
-                                  step="1"
-                                  min="1"
-                                  placeholder="Qty"
-                                  value={misc.qty || ""}
-                                  onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'qty', e.target.value ? parseFloat(e.target.value) : 0)}
-                                  className="h-8 text-xs"
-                                  disabled={isReadOnly}
-                                />
-                              </div>
-                              <div>
                                 <Label className="text-xs text-muted-foreground">Unit Cost</Label>
                                 <Input
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  placeholder="Unit Cost"
+                                  placeholder="Cost/unit"
                                   value={misc.unit_cost || ""}
                                   onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'unit_cost', e.target.value ? parseFloat(e.target.value) : 0)}
                                   className="h-8 text-xs"
@@ -383,9 +375,9 @@ export const ItemSupplierManager = ({
                                 />
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Total</Label>
+                                <Label className="text-xs text-muted-foreground">Total (×{qty})</Label>
                                 <div className="h-8 flex items-center px-2 bg-muted/50 rounded text-xs font-medium">
-                                  {((misc.unit_cost || 0) * (misc.qty || 0)).toFixed(2)}
+                                  {(misc.unit_cost * qty).toFixed(2)}
                                 </div>
                               </div>
                             </div>
@@ -413,19 +405,29 @@ export const ItemSupplierManager = ({
                           </div>
                         </div>
                       ))}
-                      {miscCost > 0 && (
+                      {miscUnitCost > 0 && (
                         <div className="text-xs font-semibold text-right text-muted-foreground pt-1">
-                          Misc Total: {miscCost.toFixed(2)}
+                          Misc Total: {(miscUnitCost * qty).toFixed(2)} ({miscUnitCost.toFixed(2)}/unit × {qty})
                         </div>
                       )}
                     </div>
 
                     {/* Subtotal and Pricing */}
                     <div className="bg-primary/5 p-3 rounded space-y-2">
-                      <div className="text-sm font-bold text-primary">
-                        Subtotal: AED {subtotal.toFixed(2)}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Combined Unit Cost:</span>
+                          <span className="ml-2 font-semibold">{combinedUnitCost.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground ml-1">({productUnitCost.toFixed(2)} + {miscUnitCost.toFixed(2)})</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total Cost:</span>
+                          <span className="ml-2 font-bold text-primary">{subtotal.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground ml-1">({combinedUnitCost.toFixed(2)} × {qty})</span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 items-end">
+                      
+                      <div className="grid grid-cols-4 gap-2 items-end pt-2 border-t border-border/50">
                         <div>
                           <Label className="text-xs text-muted-foreground">Markup %</Label>
                           <Input
@@ -452,8 +454,8 @@ export const ItemSupplierManager = ({
                             disabled={isReadOnly}
                           />
                         </div>
-                        <div className="col-span-2">
-                          <Label className="text-xs text-muted-foreground">Quoted Price (or enter directly)</Label>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Quoted Total</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -461,13 +463,20 @@ export const ItemSupplierManager = ({
                             placeholder="0"
                             value={supplier.quoted_price || ""}
                             onChange={(e) => updateSupplier(globalIndex, 'quoted_price', e.target.value)}
-                            className="h-9 text-sm font-bold text-success"
+                            className="h-9 text-sm font-bold"
                             disabled={isReadOnly}
                           />
                         </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Client Unit Cost</Label>
+                          <div className="h-9 flex items-center px-2 bg-success/20 rounded text-sm font-bold text-success">
+                            {clientUnitCost.toFixed(2)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Margin: AED {(supplier.quoted_price - subtotal).toFixed(2)} ({subtotal > 0 ? (((supplier.quoted_price - subtotal) / supplier.quoted_price) * 100).toFixed(1) : 0}%)
+                      
+                      <div className="text-xs text-muted-foreground text-right">
+                        Margin: AED {(supplier.quoted_price - subtotal).toFixed(2)} ({supplier.quoted_price > 0 ? (((supplier.quoted_price - subtotal) / supplier.quoted_price) * 100).toFixed(1) : 0}%)
                       </div>
                     </div>
                   </div>
