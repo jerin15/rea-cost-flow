@@ -163,11 +163,34 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
           console.error("Error fetching supplier options:", supplierOptionsError);
         }
 
-        // Map items with their supplier options
+        // Map items with their supplier options - rebuild nested structure
         const itemsWithSuppliers = itemsData.map(item => {
-          const itemSuppliers = supplierOptionsData
-            ?.filter(s => s.cost_sheet_item_id === item.id)
-            .map(s => ({
+          const allSuppliers = supplierOptionsData?.filter(s => s.cost_sheet_item_id === item.id) || [];
+          
+          // Separate product suppliers (no parent) and misc suppliers (have parent)
+          const productSuppliers = allSuppliers.filter(s => !s.parent_supplier_id && s.supplier_type === 'product');
+          const miscSuppliers = allSuppliers.filter(s => s.parent_supplier_id || s.supplier_type === 'misc');
+          
+          // Build nested structure
+          const itemSuppliers = productSuppliers.map(s => {
+            // Find misc suppliers that belong to this product supplier
+            const nestedMisc = miscSuppliers
+              .filter(m => m.parent_supplier_id === s.id)
+              .map(m => ({
+                id: m.id,
+                supplier_id: m.supplier_id,
+                supplier_name: m.suppliers?.name,
+                unit_cost: m.unit_cost,
+                qty: m.qty,
+                description: m.description || "",
+              }));
+            
+            // Calculate subtotal including misc
+            const productCost = s.unit_cost * s.qty;
+            const miscCost = nestedMisc.reduce((sum, m) => sum + (m.unit_cost * m.qty), 0);
+            const subtotal = productCost + miscCost;
+            
+            return {
               id: s.id,
               supplier_id: s.supplier_id,
               supplier_name: s.suppliers?.name,
@@ -177,25 +200,27 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               description: s.description || "",
               selected_by_admin: s.selected_by_admin,
               markup_percentage: s.markup_percentage || 0,
-              markup_amount: (s.unit_cost * s.qty) * ((s.markup_percentage || 0) / 100),
+              markup_amount: subtotal * ((s.markup_percentage || 0) / 100),
               quoted_price: s.quoted_price || 0,
               approval_status: s.approval_status || 'pending',
-            })) || [];
+              misc_suppliers: nestedMisc,
+            };
+          });
 
           return {
-          id: item.id,
-          item_number: item.item_number,
-          date: item.date,
-          item: item.item,
-          qty: item.qty,
-          rea_margin_percentage: item.rea_margin_percentage ?? 0,
-          rea_margin: item.rea_margin ?? 0,
-          total_cost: item.total_cost ?? 0,
-          actual_quoted: item.actual_quoted ?? 0,
-          approval_status: item.approval_status,
-          admin_remarks: item.admin_remarks || "",
-          suppliers: itemSuppliers,
-        };
+            id: item.id,
+            item_number: item.item_number,
+            date: item.date,
+            item: item.item,
+            qty: item.qty,
+            rea_margin_percentage: item.rea_margin_percentage ?? 0,
+            rea_margin: item.rea_margin ?? 0,
+            total_cost: item.total_cost ?? 0,
+            actual_quoted: item.actual_quoted ?? 0,
+            approval_status: item.approval_status,
+            admin_remarks: item.admin_remarks || "",
+            suppliers: itemSuppliers,
+          };
         });
 
         setItems(itemsWithSuppliers);
@@ -397,27 +422,57 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         console.error("Error deleting old suppliers:", deleteError);
       }
 
-      // Insert new supplier options
+      // Insert new supplier options (including nested misc suppliers)
       if (item.suppliers.length > 0) {
-        const suppliersToInsert = item.suppliers.map(s => ({
-          cost_sheet_item_id: item.id,
-          supplier_id: s.supplier_id,
-          supplier_type: s.supplier_type,
-          unit_cost: s.unit_cost,
-          qty: s.qty,
-          description: s.description,
-          selected_by_admin: s.selected_by_admin,
-          quoted_price: s.quoted_price || 0,
-          markup_percentage: s.markup_percentage || 0,
-        }));
+        for (const supplier of item.suppliers) {
+          // Insert the main product supplier first
+          const { data: insertedSupplier, error: insertError } = await supabase
+            .from("cost_sheet_item_suppliers")
+            .insert({
+              cost_sheet_item_id: item.id,
+              supplier_id: supplier.supplier_id,
+              supplier_type: supplier.supplier_type,
+              unit_cost: supplier.unit_cost,
+              qty: supplier.qty,
+              description: supplier.description,
+              selected_by_admin: supplier.selected_by_admin,
+              quoted_price: supplier.quoted_price || 0,
+              markup_percentage: supplier.markup_percentage || 0,
+            })
+            .select()
+            .single();
 
-        const { error: insertError } = await supabase
-          .from("cost_sheet_item_suppliers")
-          .insert(suppliersToInsert);
+          if (insertError) {
+            console.error("Error inserting supplier:", insertError);
+            toast.error("Failed to save supplier options");
+            return;
+          }
 
-        if (insertError) {
-          toast.error("Failed to save supplier options");
-          return;
+          // Insert misc suppliers linked to this parent
+          if (supplier.misc_suppliers && supplier.misc_suppliers.length > 0) {
+            const miscToInsert = supplier.misc_suppliers.map(misc => ({
+              cost_sheet_item_id: item.id,
+              supplier_id: misc.supplier_id,
+              supplier_type: 'misc' as const,
+              unit_cost: misc.unit_cost,
+              qty: misc.qty,
+              description: misc.description,
+              selected_by_admin: false,
+              quoted_price: 0,
+              markup_percentage: 0,
+              parent_supplier_id: insertedSupplier.id,
+            }));
+
+            const { error: miscInsertError } = await supabase
+              .from("cost_sheet_item_suppliers")
+              .insert(miscToInsert);
+
+            if (miscInsertError) {
+              console.error("Error inserting misc suppliers:", miscInsertError);
+              toast.error("Failed to save misc suppliers");
+              return;
+            }
+          }
         }
       }
 

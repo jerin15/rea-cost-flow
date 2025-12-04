@@ -48,6 +48,7 @@ export type Database = {
           description: string | null
           id: string
           markup_percentage: number
+          parent_supplier_id: string | null
           qty: number
           quoted_price: number
           selected_by_admin: boolean | null
@@ -65,6 +66,7 @@ export type Database = {
           description?: string | null
           id?: string
           markup_percentage?: number
+          parent_supplier_id?: string | null
           qty?: number
           quoted_price?: number
           selected_by_admin?: boolean | null
@@ -82,6 +84,7 @@ export type Database = {
           description?: string | null
           id?: string
           markup_percentage?: number
+          parent_supplier_id?: string | null
           qty?: number
           quoted_price?: number
           selected_by_admin?: boolean | null
@@ -96,6 +99,13 @@ export type Database = {
             columns: ["cost_sheet_item_id"]
             isOneToOne: false
             referencedRelation: "cost_sheet_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_sheet_item_suppliers_parent_supplier_id_fkey"
+            columns: ["parent_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "cost_sheet_item_suppliers"
             referencedColumns: ["id"]
           },
           {
