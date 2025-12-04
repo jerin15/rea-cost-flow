@@ -347,11 +347,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     if (field === 'suppliers') {
       const item = updated[index];
       
-      // Sum up all supplier costs (including misc suppliers) and quoted prices
+      // Sum up all supplier costs (misc uses product qty) and quoted prices
       const totalCost = item.suppliers.reduce((sum, s) => {
-        const productCost = s.unit_cost * s.qty;
-        const miscCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + (misc.unit_cost * misc.qty), 0);
-        return sum + productCost + miscCost;
+        const qty = s.qty || 1;
+        const productUnitCost = s.unit_cost;
+        const miscUnitCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + misc.unit_cost, 0);
+        return sum + ((productUnitCost + miscUnitCost) * qty);
       }, 0);
       const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
       const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
@@ -380,11 +381,12 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         return;
       }
 
-      // Calculate totals from all suppliers (including misc suppliers)
+      // Calculate totals from all suppliers (misc uses product qty)
       const totalCost = item.suppliers.reduce((sum, s) => {
-        const productCost = s.unit_cost * s.qty;
-        const miscCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + (misc.unit_cost * misc.qty), 0);
-        return sum + productCost + miscCost;
+        const qty = s.qty || 1;
+        const productUnitCost = s.unit_cost;
+        const miscUnitCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + misc.unit_cost, 0);
+        return sum + ((productUnitCost + miscUnitCost) * qty);
       }, 0);
       const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
       const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
@@ -455,7 +457,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               supplier_id: misc.supplier_id,
               supplier_type: 'misc' as const,
               unit_cost: misc.unit_cost,
-              qty: misc.qty,
+              qty: supplier.qty, // Use parent supplier's qty
               description: misc.description,
               selected_by_admin: false,
               quoted_price: 0,
@@ -658,14 +660,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               return suppliersToDisplay.map((supplier, supplierIndex) => {
                 const isFirstSupplier = supplierIndex === 0;
                 
-                // Calculate individual supplier metrics (including misc suppliers)
-                const productCost = supplier ? (supplier.unit_cost * supplier.qty) : 0;
-                const miscCost = supplier ? (supplier.misc_suppliers || []).reduce((sum, misc) => sum + (misc.unit_cost * misc.qty), 0) : 0;
-                const supplierSubtotal = productCost + miscCost;
+                // Calculate individual supplier metrics (misc uses product qty)
+                const qty = supplier ? (supplier.qty || 1) : 1;
+                const productUnitCost = supplier ? supplier.unit_cost : 0;
+                const miscUnitCost = supplier ? (supplier.misc_suppliers || []).reduce((sum, misc) => sum + misc.unit_cost, 0) : 0;
+                const combinedUnitCost = productUnitCost + miscUnitCost;
+                const supplierSubtotal = combinedUnitCost * qty;
                 const supplierQuoted = supplier ? supplier.quoted_price : 0;
                 const supplierMargin = supplierQuoted - supplierSubtotal;
                 const supplierMarginPercentage = supplierQuoted > 0 ? (supplierMargin / supplierQuoted) * 100 : 0;
-                const supplierClientUnitCost = supplier && supplier.qty > 0 ? supplierQuoted / supplier.qty : 0;
+                const supplierClientUnitCost = supplier && qty > 0 ? supplierQuoted / qty : 0;
 
                 return (
                   <TableRow key={`${item.id || itemIndex}-${supplierIndex}`}>
