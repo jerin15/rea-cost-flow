@@ -395,11 +395,11 @@ export const ItemSupplierManager = ({
                           {/* Misc Description */}
                           <div>
                             <Label className="text-xs text-muted-foreground">Misc Description</Label>
-                            <Input
+                            <Textarea
                               placeholder="Printing type, color printing, etc."
                               value={misc.description || ""}
                               onChange={(e) => updateMiscSupplier(globalIndex, miscIdx, 'description', e.target.value)}
-                              className="h-8 text-xs"
+                              className="min-h-[60px] text-xs resize-none"
                               disabled={isReadOnly}
                             />
                           </div>
