@@ -76,28 +76,35 @@ const CostSheetRecords = () => {
     }
 
     const mapped: SupplierRecord[] = data.map(row => {
-      const item = row.cost_sheet_items as any;
-      const qty = row.qty || 1;
-      const productUnitCost = row.unit_cost || 0;
+      // cost_sheet_items is a one-to-one via inner join, but handle array case
+      const rawItem = row.cost_sheet_items as any;
+      const item = Array.isArray(rawItem) ? rawItem[0] : rawItem;
+      if (!item) return null;
+
+      const rawSheet = item.cost_sheets;
+      const sheet = Array.isArray(rawSheet) ? rawSheet[0] : rawSheet;
+
+      const qty = Number(row.qty) || 1;
+      const productUnitCost = Number(row.unit_cost) || 0;
 
       // Sum misc unit costs for this product supplier
       const relatedMisc = miscData.filter(m => m.parent_supplier_id === row.id);
-      const miscUnitCost = relatedMisc.reduce((sum: number, m: any) => sum + (m.unit_cost || 0), 0);
+      const miscUnitCost = relatedMisc.reduce((sum: number, m: any) => sum + (Number(m.unit_cost) || 0), 0);
 
       const supplierUnitCost = productUnitCost + miscUnitCost;
       const totalCost = supplierUnitCost * qty;
-      const quotedPrice = row.quoted_price || 0;
-      const markupPercentage = row.markup_percentage || 0;
+      const quotedPrice = Number(row.quoted_price) || 0;
+      const markupPercentage = Number(row.markup_percentage) || 0;
       const markupAmount = quotedPrice - totalCost;
       const clientUnitCost = qty > 0 ? quotedPrice / qty : 0;
       const marginPercentage = quotedPrice > 0 ? ((quotedPrice - totalCost) / quotedPrice) * 100 : 0;
 
       return {
         id: row.id,
-        item_number: item.item_number,
-        date: item.date,
-        item_description: item.item,
-        client_name: item.cost_sheets?.clients?.name || "N/A",
+        item_number: item.item_number ?? 0,
+        date: item.date || new Date().toISOString(),
+        item_description: item.item || "",
+        client_name: sheet?.clients?.name || "N/A",
         supplier_name: row.suppliers?.name || "N/A",
         qty,
         unit_cost: productUnitCost,
@@ -110,9 +117,9 @@ const CostSheetRecords = () => {
         client_unit_cost: clientUnitCost,
         margin_percentage: marginPercentage,
         approval_status: row.approval_status || item.approval_status || "pending",
-        created_at: item.created_at,
+        created_at: item.created_at || row.created_at,
       };
-    });
+    }).filter(Boolean) as SupplierRecord[];
 
     setRecords(mapped);
     setLoading(false);
