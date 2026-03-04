@@ -118,7 +118,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     const { data, error } = await supabase
       .from("suppliers")
       .select("*")
-      .eq("client_id", clientId)
       .order("name");
 
     if (!error && data) {

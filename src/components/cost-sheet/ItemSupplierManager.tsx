@@ -252,7 +252,7 @@ export const ItemSupplierManager = ({
                               <SelectTrigger className="h-9 text-sm">
                                 <SelectValue placeholder="Supplier" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-popover">
                                 {suppliers.map((s) => (
                                   <SelectItem key={s.id} value={s.id}>
                                     {s.name}
@@ -352,7 +352,7 @@ export const ItemSupplierManager = ({
                                   <SelectTrigger className="h-8 text-xs">
                                     <SelectValue placeholder="Supplier" />
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="bg-popover">
                                     {suppliers.map((s) => (
                                       <SelectItem key={s.id} value={s.id}>
                                         {s.name}
