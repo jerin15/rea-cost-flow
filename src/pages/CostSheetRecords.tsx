@@ -7,26 +7,29 @@ import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
-interface CostSheetRecord {
+interface SupplierRecord {
   id: string;
   item_number: number;
   date: string;
-  item: string;
-  supplier_name: string;
+  item_description: string;
   client_name: string;
+  supplier_name: string;
   qty: number;
-  supplier_cost: number;
-  misc_cost: number;
+  unit_cost: number;
+  misc_unit_cost: number;
+  supplier_unit_cost: number;
   total_cost: number;
-  rea_margin: number;
-  rea_margin_percentage: number;
-  actual_quoted: number;
+  markup_percentage: number;
+  markup_amount: number;
+  quoted_price: number;
+  client_unit_cost: number;
+  margin_percentage: number;
   approval_status: string;
   created_at: string;
 }
 
 const CostSheetRecords = () => {
-  const [records, setRecords] = useState<CostSheetRecord[]>([]);
+  const [records, setRecords] = useState<SupplierRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,34 +39,82 @@ const CostSheetRecords = () => {
   const fetchRecords = async () => {
     setLoading(true);
 
+    // Fetch product suppliers (not misc) with their item and client info
     const { data, error } = await supabase
-      .from("cost_sheet_items")
+      .from("cost_sheet_item_suppliers")
       .select(`
         *,
-        suppliers!cost_sheet_items_supplier_id_fkey(name),
-        cost_sheets!inner(client_id, clients(name))
+        suppliers(name),
+        cost_sheet_items!inner(
+          item_number, date, item, approval_status, created_at,
+          cost_sheets!inner(client_id, clients(name))
+        )
       `)
+      .eq("supplier_type", "product")
       .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setRecords(data.map(item => ({
-        id: item.id,
+    if (error) {
+      console.error("Error fetching records:", error);
+      setLoading(false);
+      return;
+    }
+
+    if (!data) {
+      setLoading(false);
+      return;
+    }
+
+    // For each product supplier, fetch its misc suppliers
+    const productIds = data.map(d => d.id);
+    let miscData: any[] = [];
+    if (productIds.length > 0) {
+      const { data: misc } = await supabase
+        .from("cost_sheet_item_suppliers")
+        .select("*, suppliers(name)")
+        .in("parent_supplier_id", productIds);
+      miscData = misc || [];
+    }
+
+    const mapped: SupplierRecord[] = data.map(row => {
+      const item = row.cost_sheet_items as any;
+      const qty = row.qty || 1;
+      const productUnitCost = row.unit_cost || 0;
+
+      // Sum misc unit costs for this product supplier
+      const relatedMisc = miscData.filter(m => m.parent_supplier_id === row.id);
+      const miscUnitCost = relatedMisc.reduce((sum: number, m: any) => sum + (m.unit_cost || 0), 0);
+
+      const supplierUnitCost = productUnitCost + miscUnitCost;
+      const totalCost = supplierUnitCost * qty;
+      const quotedPrice = row.quoted_price || 0;
+      const markupPercentage = row.markup_percentage || 0;
+      const markupAmount = quotedPrice - totalCost;
+      const clientUnitCost = qty > 0 ? quotedPrice / qty : 0;
+      const marginPercentage = quotedPrice > 0 ? ((quotedPrice - totalCost) / quotedPrice) * 100 : 0;
+
+      return {
+        id: row.id,
         item_number: item.item_number,
         date: item.date,
-        item: item.item,
-        supplier_name: item.suppliers?.name || "N/A",
-        client_name: (item.cost_sheets as any)?.clients?.name || "N/A",
-        qty: item.qty,
-        supplier_cost: item.supplier_cost,
-        misc_cost: item.misc_cost || 0,
-        total_cost: item.total_cost,
-        rea_margin: item.rea_margin,
-        rea_margin_percentage: item.rea_margin_percentage || 0,
-        actual_quoted: item.actual_quoted,
-        approval_status: item.approval_status,
+        item_description: item.item,
+        client_name: item.cost_sheets?.clients?.name || "N/A",
+        supplier_name: row.suppliers?.name || "N/A",
+        qty,
+        unit_cost: productUnitCost,
+        misc_unit_cost: miscUnitCost,
+        supplier_unit_cost: supplierUnitCost,
+        total_cost: totalCost,
+        markup_percentage: markupPercentage,
+        markup_amount: markupAmount,
+        quoted_price: quotedPrice,
+        client_unit_cost: clientUnitCost,
+        margin_percentage: marginPercentage,
+        approval_status: row.approval_status || item.approval_status || "pending",
         created_at: item.created_at,
-      })));
-    }
+      };
+    });
+
+    setRecords(mapped);
     setLoading(false);
   };
 
@@ -83,7 +134,7 @@ const CostSheetRecords = () => {
   };
 
   const totalCost = records.reduce((sum, r) => sum + r.total_cost, 0);
-  const totalQuoted = records.reduce((sum, r) => sum + r.actual_quoted, 0);
+  const totalQuoted = records.reduce((sum, r) => sum + r.quoted_price, 0);
 
   return (
     <DashboardLayout>
@@ -91,21 +142,21 @@ const CostSheetRecords = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-3xl">📊 Cost Sheet Records</CardTitle>
-            <CardDescription>All cost sheet records across all clients</CardDescription>
+            <CardDescription>All cost sheet records across all clients (per supplier)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
-                <p className="text-sm text-muted-foreground">Total Items</p>
+                <p className="text-sm text-muted-foreground">Total Entries</p>
                 <p className="text-2xl font-bold">{records.length}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Cost</p>
-                <p className="text-2xl font-bold">AED {totalCost.toLocaleString()}</p>
+                <p className="text-2xl font-bold">AED {totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Quoted</p>
-                <p className="text-2xl font-bold">AED {totalQuoted.toLocaleString()}</p>
+                <p className="text-2xl font-bold">AED {totalQuoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </CardContent>
@@ -140,51 +191,41 @@ const CostSheetRecords = () => {
                         <TableHead className="w-32">Quoted Price</TableHead>
                         <TableHead className="w-24">Margin %</TableHead>
                         <TableHead className="w-32">Status</TableHead>
-                        <TableHead className="w-32">Created</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {records.map((record) => {
-                        const supplierUnitCost = record.qty > 0 ? record.supplier_cost / record.qty : 0;
-                        const clientUnitCost = record.qty > 0 ? record.actual_quoted / record.qty : 0;
-                        const marginPercentage = record.actual_quoted > 0
-                          ? ((record.actual_quoted - record.total_cost) / record.actual_quoted) * 100
-                          : 0;
-
-                        return (
-                          <TableRow key={record.id}>
-                            <TableCell className="font-medium">{record.item_number}</TableCell>
-                            <TableCell className="font-medium">{record.client_name}</TableCell>
-                            <TableCell className="whitespace-nowrap">{format(new Date(record.date), "dd/MM/yyyy")}</TableCell>
-                            <TableCell className="max-w-[300px]">{record.item}</TableCell>
-                            <TableCell>{record.supplier_name}</TableCell>
-                            <TableCell>{record.qty}</TableCell>
-                            <TableCell className="font-semibold text-muted-foreground">
-                              AED {supplierUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              AED {record.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold text-primary">
-                              AED {clientUnitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              {record.rea_margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                            </TableCell>
-                            <TableCell className="font-semibold text-primary">
-                              AED {record.rea_margin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-bold text-success">
-                              AED {record.actual_quoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="font-semibold text-success">
-                              {marginPercentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                            </TableCell>
-                            <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{format(new Date(record.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {records.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">{record.item_number}</TableCell>
+                          <TableCell className="font-medium">{record.client_name}</TableCell>
+                          <TableCell className="whitespace-nowrap">{format(new Date(record.date), "dd/MM/yyyy")}</TableCell>
+                          <TableCell className="max-w-[300px]">{record.item_description}</TableCell>
+                          <TableCell>{record.supplier_name}</TableCell>
+                          <TableCell>{record.qty}</TableCell>
+                          <TableCell className="font-semibold text-muted-foreground">
+                            AED {record.supplier_unit_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            AED {record.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="font-semibold text-primary">
+                            AED {record.client_unit_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {record.markup_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                          </TableCell>
+                          <TableCell className="font-semibold text-primary">
+                            AED {record.markup_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="font-bold text-success">
+                            AED {record.quoted_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="font-semibold text-success">
+                            {record.margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                          </TableCell>
+                          <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
