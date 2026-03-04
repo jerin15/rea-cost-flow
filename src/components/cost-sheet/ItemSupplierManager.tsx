@@ -32,6 +32,7 @@ export interface ItemSupplierOption {
   markup_percentage: number;
   markup_amount: number;
   quoted_price: number;
+  markup_on: 'unit' | 'total'; // Whether markup applies to unit cost or total cost
   approval_status?: string;
   misc_suppliers?: MiscSupplierOption[];
 }
@@ -63,6 +64,7 @@ export const ItemSupplierManager = ({
         markup_percentage: 0,
         markup_amount: 0,
         quoted_price: 0,
+        markup_on: 'total',
         misc_suppliers: [],
       };
       onSuppliersChange([...supplierOptions, newSupplier]);
@@ -106,20 +108,22 @@ export const ItemSupplierManager = ({
   const recalculateSupplier = (updated: ItemSupplierOption[], index: number) => {
     const supplier = updated[index];
     const qty = supplier.qty || 1;
+    const markupOn = supplier.markup_on || 'total';
     
-    // Calculate subtotal: (product unit cost + all misc unit costs) × qty
     const productUnitCost = supplier.unit_cost;
     const miscUnitCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + misc.unit_cost, 0);
     const combinedUnitCost = productUnitCost + miscUnitCost;
     const subtotal = combinedUnitCost * qty;
     
-    // Recalculate quoted price based on existing markup
+    // Base for markup depends on markup_on setting
+    const markupBase = markupOn === 'unit' ? combinedUnitCost : subtotal;
+    
     if (supplier.markup_percentage > 0) {
-      supplier.markup_amount = subtotal * (supplier.markup_percentage / 100);
-      supplier.quoted_price = subtotal + supplier.markup_amount;
+      supplier.markup_amount = markupBase * (supplier.markup_percentage / 100);
+      supplier.quoted_price = subtotal + (markupOn === 'unit' ? supplier.markup_amount * qty : supplier.markup_amount);
     } else if (supplier.markup_amount > 0) {
-      supplier.markup_percentage = subtotal > 0 ? (supplier.markup_amount / subtotal) * 100 : 0;
-      supplier.quoted_price = subtotal + supplier.markup_amount;
+      supplier.markup_percentage = markupBase > 0 ? (supplier.markup_amount / markupBase) * 100 : 0;
+      supplier.quoted_price = subtotal + (markupOn === 'unit' ? supplier.markup_amount * qty : supplier.markup_amount);
     } else {
       supplier.quoted_price = subtotal;
     }
@@ -129,39 +133,47 @@ export const ItemSupplierManager = ({
     const updated = [...supplierOptions];
     const supplier = { ...updated[index], [field]: value };
     const qty = supplier.qty || 1;
+    const markupOn = supplier.markup_on || 'total';
     
-    // Calculate subtotal for this supplier: (product unit cost + misc unit costs) × qty
     const productUnitCost = supplier.unit_cost;
     const miscUnitCost = (supplier.misc_suppliers || []).reduce((sum, misc) => sum + misc.unit_cost, 0);
     const combinedUnitCost = productUnitCost + miscUnitCost;
     const subtotal = combinedUnitCost * qty;
     
-    if (field === 'markup_percentage') {
-      // User entered markup% - calculate markup amount and quoted price
+    // Base for markup depends on markup_on setting
+    const markupBase = markupOn === 'unit' ? combinedUnitCost : subtotal;
+    
+    if (field === 'markup_on') {
+      // Switched markup basis - recalculate using existing markup percentage
+      if (supplier.markup_percentage > 0) {
+        supplier.markup_amount = markupBase * (supplier.markup_percentage / 100);
+        supplier.quoted_price = subtotal + (markupOn === 'unit' ? supplier.markup_amount * qty : supplier.markup_amount);
+      }
+    } else if (field === 'markup_percentage') {
       const markupPct = parseFloat(value) || 0;
       supplier.markup_percentage = markupPct;
-      supplier.markup_amount = subtotal * (markupPct / 100);
-      supplier.quoted_price = subtotal + supplier.markup_amount;
+      supplier.markup_amount = markupBase * (markupPct / 100);
+      supplier.quoted_price = subtotal + (markupOn === 'unit' ? supplier.markup_amount * qty : supplier.markup_amount);
     } else if (field === 'markup_amount') {
-      // User entered markup amount - calculate markup% and quoted price
       const markupAmt = parseFloat(value) || 0;
       supplier.markup_amount = markupAmt;
-      supplier.markup_percentage = subtotal > 0 ? (markupAmt / subtotal) * 100 : 0;
-      supplier.quoted_price = subtotal + markupAmt;
+      supplier.markup_percentage = markupBase > 0 ? (markupAmt / markupBase) * 100 : 0;
+      supplier.quoted_price = subtotal + (markupOn === 'unit' ? markupAmt * qty : markupAmt);
     } else if (field === 'quoted_price') {
-      // User entered quoted price directly - calculate markup from it
       const quotedPrice = parseFloat(value) || 0;
       supplier.quoted_price = quotedPrice;
-      supplier.markup_amount = quotedPrice - subtotal;
-      supplier.markup_percentage = subtotal > 0 ? (supplier.markup_amount / subtotal) * 100 : 0;
+      const totalMarkup = quotedPrice - subtotal;
+      // Derive markup_amount based on basis
+      supplier.markup_amount = markupOn === 'unit' ? (qty > 0 ? totalMarkup / qty : 0) : totalMarkup;
+      const base = markupOn === 'unit' ? combinedUnitCost : subtotal;
+      supplier.markup_percentage = base > 0 ? (supplier.markup_amount / base) * 100 : 0;
     } else if (field === 'unit_cost' || field === 'qty') {
-      // Cost changed - recalculate based on existing markup percentage
       if (supplier.markup_percentage > 0) {
-        supplier.markup_amount = subtotal * (supplier.markup_percentage / 100);
-        supplier.quoted_price = subtotal + supplier.markup_amount;
+        supplier.markup_amount = markupBase * (supplier.markup_percentage / 100);
+        supplier.quoted_price = subtotal + (markupOn === 'unit' ? supplier.markup_amount * qty : supplier.markup_amount);
       } else if (supplier.markup_amount > 0) {
-        supplier.markup_percentage = subtotal > 0 ? (supplier.markup_amount / subtotal) * 100 : 0;
-        supplier.quoted_price = subtotal + supplier.markup_amount;
+        supplier.markup_percentage = markupBase > 0 ? (supplier.markup_amount / markupBase) * 100 : 0;
+        supplier.quoted_price = subtotal + (markupOn === 'unit' ? supplier.markup_amount * qty : supplier.markup_amount);
       } else {
         supplier.quoted_price = subtotal;
       }
@@ -427,7 +439,26 @@ export const ItemSupplierManager = ({
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-4 gap-2 items-end pt-2 border-t border-border/50">
+                      <div className="flex items-center gap-2 pt-2 border-t border-border/50 mb-2">
+                        <Label className="text-xs text-muted-foreground">Markup on:</Label>
+                        <Select
+                          value={supplier.markup_on || 'total'}
+                          onValueChange={(value) => updateSupplier(globalIndex, 'markup_on', value)}
+                          disabled={isReadOnly}
+                        >
+                          <SelectTrigger className="h-7 w-[140px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover">
+                            <SelectItem value="unit">Unit Cost</SelectItem>
+                            <SelectItem value="total">Total Cost</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <span className="text-xs text-muted-foreground">
+                          (Base: {(supplier.markup_on === 'unit' ? combinedUnitCost : subtotal).toFixed(2)})
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 items-end">
                         <div>
                           <Label className="text-xs text-muted-foreground">Markup %</Label>
                           <Input
@@ -442,7 +473,7 @@ export const ItemSupplierManager = ({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Markup AED</Label>
+                          <Label className="text-xs text-muted-foreground">Markup AED{supplier.markup_on === 'unit' ? ' /unit' : ''}</Label>
                           <Input
                             type="number"
                             step="0.01"
