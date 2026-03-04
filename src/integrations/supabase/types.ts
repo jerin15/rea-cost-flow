@@ -47,6 +47,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          markup_on: string
           markup_percentage: number
           parent_supplier_id: string | null
           qty: number
@@ -65,6 +66,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          markup_on?: string
           markup_percentage?: number
           parent_supplier_id?: string | null
           qty?: number
@@ -83,6 +85,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          markup_on?: string
           markup_percentage?: number
           parent_supplier_id?: string | null
           qty?: number

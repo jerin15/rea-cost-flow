@@ -201,6 +201,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               markup_percentage: s.markup_percentage || 0,
               markup_amount: subtotal * ((s.markup_percentage || 0) / 100),
               quoted_price: s.quoted_price || 0,
+              markup_on: (s as any).markup_on || 'total',
               approval_status: s.approval_status || 'pending',
               misc_suppliers: nestedMisc,
             };
@@ -439,6 +440,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               selected_by_admin: supplier.selected_by_admin,
               quoted_price: supplier.quoted_price || 0,
               markup_percentage: supplier.markup_percentage || 0,
+              markup_on: supplier.markup_on || 'total',
             })
             .select()
             .single();

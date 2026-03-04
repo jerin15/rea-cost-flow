@@ -1,0 +1,1 @@
+ALTER TABLE public.cost_sheet_item_suppliers ADD COLUMN markup_on text NOT NULL DEFAULT 'total';
