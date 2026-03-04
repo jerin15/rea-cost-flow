@@ -45,8 +45,7 @@ export const SubmittedSheetsWidget = () => {
         `)
         .eq('created_by', user.id)
         .not('submitted_at', 'is', null)
-        .order('submitted_at', { ascending: false })
-        .limit(5);
+        .order('submitted_at', { ascending: false });
 
       if (error) throw error;
 
@@ -150,15 +149,13 @@ export const SubmittedSheetsWidget = () => {
                 </Button>
               </div>
             ))}
-            {submittedSheets.length === 5 && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate('/approved-cost-sheets')}
-              >
-                View All
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate('/approved-cost-sheets')}
+            >
+              View All
+            </Button>
           </div>
         )}
       </CardContent>
