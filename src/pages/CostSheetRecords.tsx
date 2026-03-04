@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Search } from "lucide-react";
 
 interface SupplierRecord {
   id: string;
@@ -140,8 +142,24 @@ const CostSheetRecords = () => {
     }
   };
 
-  const totalCost = records.reduce((sum, r) => sum + r.total_cost, 0);
-  const totalQuoted = records.reduce((sum, r) => sum + r.quoted_price, 0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredRecords = useMemo(() => {
+    if (!searchQuery.trim()) return records;
+    const q = searchQuery.toLowerCase();
+    return records.filter(r =>
+      r.client_name.toLowerCase().includes(q) ||
+      r.item_description.toLowerCase().includes(q) ||
+      r.supplier_name.toLowerCase().includes(q) ||
+      r.date.includes(q) ||
+      r.quoted_price.toString().includes(q) ||
+      r.supplier_unit_cost.toString().includes(q) ||
+      r.approval_status.toLowerCase().includes(q)
+    );
+  }, [records, searchQuery]);
+
+  const totalCost = filteredRecords.reduce((sum, r) => sum + r.total_cost, 0);
+  const totalQuoted = filteredRecords.reduce((sum, r) => sum + r.quoted_price, 0);
 
   return (
     <DashboardLayout>
@@ -152,10 +170,19 @@ const CostSheetRecords = () => {
             <CardDescription>All cost sheet records across all clients (per supplier)</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by client, item, supplier, price..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
             <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
                 <p className="text-sm text-muted-foreground">Total Entries</p>
-                <p className="text-2xl font-bold">{records.length}</p>
+                <p className="text-2xl font-bold">{filteredRecords.length}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Cost</p>
@@ -176,8 +203,8 @@ const CostSheetRecords = () => {
           <CardContent>
             {loading ? (
               <p className="text-center text-muted-foreground py-8">Loading...</p>
-            ) : records.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No cost sheet items found</p>
+            ) : filteredRecords.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">{searchQuery ? "No matching records found" : "No cost sheet items found"}</p>
             ) : (
               <ScrollArea className="h-[600px] w-full">
                 <div className="min-w-[1500px]">
@@ -201,7 +228,7 @@ const CostSheetRecords = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {records.map((record) => (
+                      {filteredRecords.map((record) => (
                         <TableRow key={record.id}>
                           <TableCell className="font-medium">{record.item_number}</TableCell>
                           <TableCell className="font-medium">{record.client_name}</TableCell>
