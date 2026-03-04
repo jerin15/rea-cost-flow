@@ -225,6 +225,7 @@ const CostSheetRecords = () => {
                         <TableHead className="w-32">Quoted Price</TableHead>
                         <TableHead className="w-24">Margin %</TableHead>
                         <TableHead className="w-32">Status</TableHead>
+                        <TableHead className="w-40">Created</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -258,6 +259,9 @@ const CostSheetRecords = () => {
                             {record.margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                           </TableCell>
                           <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                            {format(new Date(record.created_at), "dd/MM/yyyy HH:mm")}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
