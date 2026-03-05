@@ -158,8 +158,6 @@ const CostSheetRecords = () => {
     );
   }, [records, searchQuery]);
 
-  const totalCost = filteredRecords.reduce((sum, r) => sum + r.total_cost, 0);
-  const totalQuoted = filteredRecords.reduce((sum, r) => sum + r.quoted_price, 0);
 
   return (
     <DashboardLayout>
