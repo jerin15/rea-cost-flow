@@ -158,8 +158,6 @@ const CostSheetRecords = () => {
     );
   }, [records, searchQuery]);
 
-  const totalCost = filteredRecords.reduce((sum, r) => sum + r.total_cost, 0);
-  const totalQuoted = filteredRecords.reduce((sum, r) => sum + r.quoted_price, 0);
 
   return (
     <DashboardLayout>
@@ -179,19 +177,9 @@ const CostSheetRecords = () => {
                 className="pl-10"
               />
             </div>
-            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Entries</p>
-                <p className="text-2xl font-bold">{filteredRecords.length}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Cost</p>
-                <p className="text-2xl font-bold">AED {totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Quoted</p>
-                <p className="text-2xl font-bold">AED {totalQuoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
+            <div className="p-4 bg-muted/50 rounded-lg inline-block">
+              <p className="text-sm text-muted-foreground">Total Entries</p>
+              <p className="text-2xl font-bold">{filteredRecords.length}</p>
             </div>
           </CardContent>
         </Card>
