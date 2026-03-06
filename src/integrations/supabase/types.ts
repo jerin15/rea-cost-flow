@@ -52,6 +52,7 @@ export type Database = {
           parent_supplier_id: string | null
           qty: number
           quoted_price: number
+          revision_number: number
           selected_by_admin: boolean | null
           supplier_id: string
           supplier_type: string
@@ -71,6 +72,7 @@ export type Database = {
           parent_supplier_id?: string | null
           qty?: number
           quoted_price?: number
+          revision_number?: number
           selected_by_admin?: boolean | null
           supplier_id: string
           supplier_type: string
@@ -90,6 +92,7 @@ export type Database = {
           parent_supplier_id?: string | null
           qty?: number
           quoted_price?: number
+          revision_number?: number
           selected_by_admin?: boolean | null
           supplier_id?: string
           supplier_type?: string

@@ -28,6 +28,7 @@ interface SupplierRecord {
   margin_percentage: number;
   approval_status: string;
   created_at: string;
+  revision_number: number;
 }
 
 const CostSheetRecords = () => {
@@ -120,6 +121,7 @@ const CostSheetRecords = () => {
         margin_percentage: marginPercentage,
         approval_status: row.approval_status || item.approval_status || "pending",
         created_at: item.created_at || row.created_at,
+        revision_number: row.revision_number || 1,
       };
     }).filter(Boolean) as SupplierRecord[];
 
@@ -213,6 +215,7 @@ const CostSheetRecords = () => {
                         <TableHead className="w-32">Quoted Price</TableHead>
                         <TableHead className="w-24">Margin %</TableHead>
                         <TableHead className="w-32">Status</TableHead>
+                        <TableHead className="w-20">Rev</TableHead>
                         <TableHead className="w-40">Created</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -247,6 +250,13 @@ const CostSheetRecords = () => {
                             {record.margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                           </TableCell>
                           <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
+                          <TableCell>
+                            {record.revision_number > 1 ? (
+                              <Badge className="bg-accent text-accent-foreground">Rev {record.revision_number}</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Original</span>
+                            )}
+                          </TableCell>
                           <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                             {format(new Date(record.created_at), "dd/MM/yyyy HH:mm")}
                           </TableCell>
