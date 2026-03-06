@@ -133,7 +133,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         .from("cost_sheet_items")
         .select(`
           *,
-          cost_sheets!inner(client_id, id, status)
+          cost_sheets!inner(client_id, id, status, quotation_no)
         `)
         .eq("cost_sheets.client_id", clientId)
         .neq("approval_status", "approved_both")
