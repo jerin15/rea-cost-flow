@@ -232,6 +232,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          quotation_no: string | null
           status: string
           submitted_at: string | null
           updated_at: string
@@ -241,6 +242,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          quotation_no?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -250,6 +252,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          quotation_no?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string

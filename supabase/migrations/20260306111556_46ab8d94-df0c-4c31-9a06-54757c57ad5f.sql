@@ -1,0 +1,1 @@
+ALTER TABLE public.cost_sheets ADD COLUMN quotation_no text DEFAULT NULL;
