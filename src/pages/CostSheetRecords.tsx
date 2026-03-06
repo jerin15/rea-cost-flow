@@ -252,7 +252,7 @@ const CostSheetRecords = () => {
                           <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
                           <TableCell>
                             {record.revision_number > 1 ? (
-                              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Rev {record.revision_number}</Badge>
+                              <Badge className="bg-accent text-accent-foreground">Rev {record.revision_number}</Badge>
                             ) : (
                               <span className="text-xs text-muted-foreground">Original</span>
                             )}
