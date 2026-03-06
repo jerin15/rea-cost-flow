@@ -252,6 +252,7 @@ const CostSheetRecords = () => {
             groupedByClient.map(([clientName, items]) => {
               const isOpen = expandedClients.has(clientName);
               const totalQuoted = items.reduce((s, r) => s + r.quoted_price, 0);
+              const quotationNo = items[0]?.quotation_no;
               return (
                 <Collapsible key={clientName} open={isOpen} onOpenChange={() => toggleClient(clientName)}>
                   <Card>
