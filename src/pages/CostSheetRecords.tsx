@@ -121,6 +121,7 @@ const CostSheetRecords = () => {
         margin_percentage: marginPercentage,
         approval_status: row.approval_status || item.approval_status || "pending",
         created_at: item.created_at || row.created_at,
+        revision_number: row.revision_number || 1,
       };
     }).filter(Boolean) as SupplierRecord[];
 
