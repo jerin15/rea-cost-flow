@@ -149,7 +149,7 @@ const CostSheetRecords = () => {
   const filteredRecords = useMemo(() => {
     if (!searchQuery.trim()) return records;
     const q = searchQuery.toLowerCase();
-    return records.filter(r =>
+    const filtered = records.filter(r =>
       r.client_name.toLowerCase().includes(q) ||
       r.item_description.toLowerCase().includes(q) ||
       r.supplier_name.toLowerCase().includes(q) ||
@@ -157,6 +157,12 @@ const CostSheetRecords = () => {
       r.quoted_price.toString().includes(q) ||
       r.supplier_unit_cost.toString().includes(q) ||
       r.approval_status.toLowerCase().includes(q)
+    );
+    // Sort by client name, then item number, then supplier name
+    return [...filtered].sort((a, b) => 
+      a.client_name.localeCompare(b.client_name) || 
+      a.item_number - b.item_number || 
+      a.supplier_name.localeCompare(b.supplier_name)
     );
   }, [records, searchQuery]);
 
