@@ -381,6 +381,14 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setLoading(true);
 
     try {
+      // Save quotation_no on the cost sheet
+      if (costSheetId) {
+        await supabase
+          .from("cost_sheets")
+          .update({ quotation_no: quotationNo || null })
+          .eq("id", costSheetId);
+      }
+
       for (const item of itemsToSave) {
         // Calculate totals from all suppliers
         const totalCost = item.suppliers.reduce((sum, s) => {
