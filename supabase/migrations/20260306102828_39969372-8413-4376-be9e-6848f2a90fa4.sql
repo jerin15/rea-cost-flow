@@ -1,0 +1,1 @@
+ALTER TABLE public.cost_sheet_item_suppliers ADD COLUMN revision_number integer NOT NULL DEFAULT 1;
