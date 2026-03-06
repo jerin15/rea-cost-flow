@@ -777,30 +777,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     )}
                     {isFirstSupplier && (
                       <TableCell rowSpan={suppliersToDisplay.length}>
-                        <div className="flex flex-col gap-2">
-                          {!isReadOnly && (
-                            <Button
-                              size="sm"
-                              onClick={() => saveItem(itemIndex)}
-                              disabled={loading}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          {userRole === "estimator" && !isReadOnly && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteItem(itemIndex)}
-                              disabled={loading}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          )}
-                        </div>
+                        {userRole === "estimator" && !isReadOnly && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteItem(itemIndex)}
+                            disabled={loading}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
