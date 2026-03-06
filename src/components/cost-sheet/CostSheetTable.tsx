@@ -148,6 +148,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       if (itemsData && itemsData.length > 0) {
         setCostSheetId(itemsData[0].cost_sheet_id);
         setCostSheetStatus(itemsData[0].cost_sheets.status);
+        setQuotationNo((itemsData[0].cost_sheets as any).quotation_no || "");
 
         // Fetch supplier options for all items
         const itemIds = itemsData.map(item => item.id);
