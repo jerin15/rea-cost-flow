@@ -626,12 +626,20 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             </>
           )}
         </div>
-        {userRole === "estimator" && costSheetStatus === "draft" && items.length > 0 && (
-          <Button onClick={submitCostSheet} disabled={loading}>
-            <Send className="h-4 w-4 mr-2" />
-            Submit for Approval
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {items.length > 0 && (
+            <Button onClick={saveAllItems} disabled={loading} variant="default">
+              <Save className="h-4 w-4 mr-2" />
+              Save All
+            </Button>
+          )}
+          {userRole === "estimator" && costSheetStatus === "draft" && items.length > 0 && (
+            <Button onClick={submitCostSheet} disabled={loading}>
+              <Send className="h-4 w-4 mr-2" />
+              Submit for Approval
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="w-full overflow-x-auto scrollbar-visible">
