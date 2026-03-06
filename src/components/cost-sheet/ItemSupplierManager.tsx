@@ -301,9 +301,20 @@ export const ItemSupplierManager = ({
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">Total</Label>
-                            <div className="h-9 flex items-center px-2 bg-muted/50 rounded text-sm font-medium">
-                              {(productUnitCost * qty).toFixed(2)}
-                            </div>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Total"
+                              value={(productUnitCost * qty) || ""}
+                              onChange={(e) => {
+                                const total = parseFloat(e.target.value) || 0;
+                                const newUnitCost = qty > 0 ? total / qty : 0;
+                                updateSupplier(globalIndex, 'unit_cost', newUnitCost);
+                              }}
+                              className="h-9 text-sm"
+                              disabled={isReadOnly}
+                            />
                           </div>
                         </div>
                         
