@@ -263,6 +263,7 @@ const CostSheetRecords = () => {
                           <Users className="h-4 w-4 text-primary" />
                           <span className="font-semibold text-lg">{clientName}</span>
                           <Badge variant="secondary" className="ml-2">{items.length} items</Badge>
+                          {quotationNo && <Badge variant="outline" className="ml-2">QTN: {quotationNo}</Badge>}
                         </div>
                         <span className="text-sm font-medium text-muted-foreground">
                           Total Quoted: <span className="text-foreground font-bold">AED {totalQuoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
