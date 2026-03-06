@@ -51,7 +51,7 @@ const CostSheetRecords = () => {
         suppliers(name),
         cost_sheet_items!inner(
           item_number, date, item, approval_status, created_at,
-          cost_sheets!inner(client_id, clients(name))
+          cost_sheets!inner(client_id, quotation_no, clients(name))
         )
       `)
       .eq("supplier_type", "product")
