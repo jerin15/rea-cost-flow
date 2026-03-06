@@ -30,6 +30,7 @@ interface SupplierRecord {
   approval_status: string;
   created_at: string;
   revision_number: number;
+  quotation_no: string;
 }
 
 const CostSheetRecords = () => {
