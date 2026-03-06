@@ -599,8 +599,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <div className="flex gap-2 items-center">
           {userRole === "estimator" && (
             <>
               <Button onClick={addNewRow} disabled={loading}>
@@ -636,6 +636,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               </Dialog>
             </>
           )}
+          <div className="flex items-center gap-2 ml-4">
+            <Label htmlFor="quotation-no" className="text-sm font-medium whitespace-nowrap">Quotation No:</Label>
+            <Input
+              id="quotation-no"
+              value={quotationNo}
+              onChange={(e) => setQuotationNo(e.target.value)}
+              placeholder="e.g. QTN-001"
+              className="h-9 w-40"
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           {items.length > 0 && (
