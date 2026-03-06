@@ -48,6 +48,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
   const [loading, setLoading] = useState(false);
   const [costSheetId, setCostSheetId] = useState<string | null>(null);
   const [costSheetStatus, setCostSheetStatus] = useState<string>("draft");
+  const [quotationNo, setQuotationNo] = useState<string>("");
 
   // Estimators can always edit, admins can always edit
   const isReadOnly = false;
