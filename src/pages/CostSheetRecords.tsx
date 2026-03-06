@@ -250,6 +250,13 @@ const CostSheetRecords = () => {
                             {record.margin_percentage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                           </TableCell>
                           <TableCell>{getStatusBadge(record.approval_status)}</TableCell>
+                          <TableCell>
+                            {record.revision_number > 1 ? (
+                              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Rev {record.revision_number}</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Original</span>
+                            )}
+                          </TableCell>
                           <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                             {format(new Date(record.created_at), "dd/MM/yyyy HH:mm")}
                           </TableCell>
