@@ -28,6 +28,7 @@ interface SupplierRecord {
   margin_percentage: number;
   approval_status: string;
   created_at: string;
+  revision_number: number;
 }
 
 const CostSheetRecords = () => {

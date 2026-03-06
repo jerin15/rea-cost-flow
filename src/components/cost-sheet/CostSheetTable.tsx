@@ -414,6 +414,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         return;
       }
 
+      // Fetch existing revision numbers before deleting
+      const { data: existingSuppliers } = await supabase
+        .from("cost_sheet_item_suppliers")
+        .select("supplier_id, revision_number")
+        .eq("cost_sheet_item_id", item.id)
+        .eq("supplier_type", "product");
+
+      const revisionMap: Record<string, number> = {};
+      (existingSuppliers || []).forEach(s => {
+        revisionMap[s.supplier_id] = Math.max(revisionMap[s.supplier_id] || 0, s.revision_number);
+      });
+
       // Delete existing supplier options for this item
       const { error: deleteError } = await supabase
         .from("cost_sheet_item_suppliers")
@@ -427,6 +439,9 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       // Insert new supplier options (including nested misc suppliers)
       if (item.suppliers.length > 0) {
         for (const supplier of item.suppliers) {
+          const prevRevision = revisionMap[supplier.supplier_id] || 0;
+          const revisionNumber = prevRevision > 0 ? prevRevision + 1 : 1;
+
           // Insert the main product supplier first
           const { data: insertedSupplier, error: insertError } = await supabase
             .from("cost_sheet_item_suppliers")
@@ -441,6 +456,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               quoted_price: supplier.quoted_price || 0,
               markup_percentage: supplier.markup_percentage || 0,
               markup_on: supplier.markup_on || 'total',
+              revision_number: revisionNumber,
             })
             .select()
             .single();
