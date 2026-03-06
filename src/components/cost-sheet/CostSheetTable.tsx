@@ -367,86 +367,77 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setItems(updated);
   };
 
-  const saveItem = async (index: number) => {
-    const item = items[index];
-    if (!item.id) return;
+  const saveAllItems = async () => {
+    // Only save items that have suppliers
+    const itemsToSave = items.filter(i => i.id && i.suppliers.length > 0);
+    if (itemsToSave.length === 0) {
+      toast.error("No items with suppliers to save");
+      return;
+    }
 
     setLoading(true);
 
     try {
-      // Validate that at least one supplier has been added
-      if (item.suppliers.length === 0) {
-        toast.error("Please add at least one supplier before saving");
-        setLoading(false);
-        return;
-      }
+      for (const item of itemsToSave) {
+        // Calculate totals from all suppliers
+        const totalCost = item.suppliers.reduce((sum, s) => {
+          const qty = s.qty || 1;
+          const productUnitCost = s.unit_cost;
+          const miscUnitCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + misc.unit_cost, 0);
+          return sum + ((productUnitCost + miscUnitCost) * qty);
+        }, 0);
+        const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
+        const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
+        const reaMarginAmount = totalQuoted - totalCost;
+        const reaMarginPercentage = totalQuoted > 0 ? (reaMarginAmount / totalQuoted) * 100 : 0;
 
-      // Calculate totals from all suppliers (misc uses product qty)
-      const totalCost = item.suppliers.reduce((sum, s) => {
-        const qty = s.qty || 1;
-        const productUnitCost = s.unit_cost;
-        const miscUnitCost = (s.misc_suppliers || []).reduce((mSum, misc) => mSum + misc.unit_cost, 0);
-        return sum + ((productUnitCost + miscUnitCost) * qty);
-      }, 0);
-      const totalQuoted = item.suppliers.reduce((sum, s) => sum + (s.quoted_price || 0), 0);
-      const totalQty = item.suppliers.reduce((sum, s) => sum + s.qty, 0);
-      
-      const reaMarginAmount = totalQuoted - totalCost;
-      const reaMarginPercentage = totalQuoted > 0 ? (reaMarginAmount / totalQuoted) * 100 : 0;
+        // Update the cost sheet item
+        const { error: itemError } = await supabase
+          .from("cost_sheet_items")
+          .update({
+            date: item.date,
+            item: item.item,
+            qty: totalQty,
+            total_cost: totalCost,
+            rea_margin: reaMarginAmount,
+            rea_margin_percentage: reaMarginPercentage,
+            actual_quoted: totalQuoted,
+            admin_remarks: item.admin_remarks,
+          })
+          .eq("id", item.id!);
 
-      // Update the cost sheet item
-      const { error: itemError } = await supabase
-        .from("cost_sheet_items")
-        .update({
-          date: item.date,
-          item: item.item,
-          qty: totalQty,
-          total_cost: totalCost,
-          rea_margin: reaMarginAmount,
-          rea_margin_percentage: reaMarginPercentage,
-          actual_quoted: totalQuoted,
-          admin_remarks: item.admin_remarks,
-        })
-        .eq("id", item.id);
+        if (itemError) {
+          toast.error(`Failed to save item #${item.item_number}`);
+          return;
+        }
 
-      if (itemError) {
-        toast.error("Failed to save item");
-        return;
-      }
+        // Fetch existing revision numbers before deleting
+        const { data: existingSuppliers } = await supabase
+          .from("cost_sheet_item_suppliers")
+          .select("supplier_id, revision_number")
+          .eq("cost_sheet_item_id", item.id!)
+          .eq("supplier_type", "product");
 
-      // Fetch existing revision numbers before deleting
-      const { data: existingSuppliers } = await supabase
-        .from("cost_sheet_item_suppliers")
-        .select("supplier_id, revision_number")
-        .eq("cost_sheet_item_id", item.id)
-        .eq("supplier_type", "product");
+        const revisionMap: Record<string, number> = {};
+        (existingSuppliers || []).forEach(s => {
+          revisionMap[s.supplier_id] = Math.max(revisionMap[s.supplier_id] || 0, s.revision_number);
+        });
 
-      const revisionMap: Record<string, number> = {};
-      (existingSuppliers || []).forEach(s => {
-        revisionMap[s.supplier_id] = Math.max(revisionMap[s.supplier_id] || 0, s.revision_number);
-      });
+        // Delete existing supplier options for this item
+        await supabase
+          .from("cost_sheet_item_suppliers")
+          .delete()
+          .eq("cost_sheet_item_id", item.id!);
 
-      // Delete existing supplier options for this item
-      const { error: deleteError } = await supabase
-        .from("cost_sheet_item_suppliers")
-        .delete()
-        .eq("cost_sheet_item_id", item.id);
-
-      if (deleteError) {
-        console.error("Error deleting old suppliers:", deleteError);
-      }
-
-      // Insert new supplier options (including nested misc suppliers)
-      if (item.suppliers.length > 0) {
+        // Insert new supplier options
         for (const supplier of item.suppliers) {
           const prevRevision = revisionMap[supplier.supplier_id] || 0;
           const revisionNumber = prevRevision > 0 ? prevRevision + 1 : 1;
 
-          // Insert the main product supplier first
           const { data: insertedSupplier, error: insertError } = await supabase
             .from("cost_sheet_item_suppliers")
             .insert({
-              cost_sheet_item_id: item.id,
+              cost_sheet_item_id: item.id!,
               supplier_id: supplier.supplier_id,
               supplier_type: supplier.supplier_type,
               unit_cost: supplier.unit_cost,
@@ -462,19 +453,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             .single();
 
           if (insertError) {
-            console.error("Error inserting supplier:", insertError);
             toast.error("Failed to save supplier options");
             return;
           }
 
-          // Insert misc suppliers linked to this parent
+          // Insert misc suppliers
           if (supplier.misc_suppliers && supplier.misc_suppliers.length > 0) {
             const miscToInsert = supplier.misc_suppliers.map(misc => ({
-              cost_sheet_item_id: item.id,
+              cost_sheet_item_id: item.id!,
               supplier_id: misc.supplier_id,
               supplier_type: 'misc' as const,
               unit_cost: misc.unit_cost,
-              qty: supplier.qty, // Use parent supplier's qty
+              qty: supplier.qty,
               description: misc.description,
               selected_by_admin: false,
               quoted_price: 0,
@@ -487,7 +477,6 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               .insert(miscToInsert);
 
             if (miscInsertError) {
-              console.error("Error inserting misc suppliers:", miscInsertError);
               toast.error("Failed to save misc suppliers");
               return;
             }
@@ -495,10 +484,10 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         }
       }
 
-      toast.success("Item saved successfully");
+      toast.success(`Saved ${itemsToSave.length} item(s) successfully`);
       fetchCostSheetItems();
     } catch (error) {
-      console.error("Error saving item:", error);
+      console.error("Error saving items:", error);
       toast.error("An error occurred while saving");
     } finally {
       setLoading(false);
@@ -637,12 +626,20 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
             </>
           )}
         </div>
-        {userRole === "estimator" && costSheetStatus === "draft" && items.length > 0 && (
-          <Button onClick={submitCostSheet} disabled={loading}>
-            <Send className="h-4 w-4 mr-2" />
-            Submit for Approval
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {items.length > 0 && (
+            <Button onClick={saveAllItems} disabled={loading} variant="default">
+              <Save className="h-4 w-4 mr-2" />
+              Save All
+            </Button>
+          )}
+          {userRole === "estimator" && costSheetStatus === "draft" && items.length > 0 && (
+            <Button onClick={submitCostSheet} disabled={loading}>
+              <Send className="h-4 w-4 mr-2" />
+              Submit for Approval
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="w-full overflow-x-auto scrollbar-visible">
@@ -780,30 +777,18 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
                     )}
                     {isFirstSupplier && (
                       <TableCell rowSpan={suppliersToDisplay.length}>
-                        <div className="flex flex-col gap-2">
-                          {!isReadOnly && (
-                            <Button
-                              size="sm"
-                              onClick={() => saveItem(itemIndex)}
-                              disabled={loading}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          {userRole === "estimator" && !isReadOnly && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteItem(itemIndex)}
-                              disabled={loading}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          )}
-                        </div>
+                        {userRole === "estimator" && !isReadOnly && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteItem(itemIndex)}
+                            disabled={loading}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
