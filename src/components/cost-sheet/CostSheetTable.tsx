@@ -230,6 +230,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         setItems([]);
         setCostSheetId(null);
         setCostSheetStatus("draft");
+        setQuotationNo("");
       }
     } catch (err) {
       console.error("Unexpected error in fetchCostSheetItems:", err);
