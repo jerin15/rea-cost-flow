@@ -48,6 +48,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
   const [loading, setLoading] = useState(false);
   const [costSheetId, setCostSheetId] = useState<string | null>(null);
   const [costSheetStatus, setCostSheetStatus] = useState<string>("draft");
+  const [quotationNo, setQuotationNo] = useState<string>("");
 
   // Estimators can always edit, admins can always edit
   const isReadOnly = false;
@@ -132,7 +133,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         .from("cost_sheet_items")
         .select(`
           *,
-          cost_sheets!inner(client_id, id, status)
+          cost_sheets!inner(client_id, id, status, quotation_no)
         `)
         .eq("cost_sheets.client_id", clientId)
         .neq("approval_status", "approved_both")
@@ -147,6 +148,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
       if (itemsData && itemsData.length > 0) {
         setCostSheetId(itemsData[0].cost_sheet_id);
         setCostSheetStatus(itemsData[0].cost_sheets.status);
+        setQuotationNo((itemsData[0].cost_sheets as any).quotation_no || "");
 
         // Fetch supplier options for all items
         const itemIds = itemsData.map(item => item.id);
@@ -228,6 +230,7 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
         setItems([]);
         setCostSheetId(null);
         setCostSheetStatus("draft");
+        setQuotationNo("");
       }
     } catch (err) {
       console.error("Unexpected error in fetchCostSheetItems:", err);
@@ -378,6 +381,14 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
     setLoading(true);
 
     try {
+      // Save quotation_no on the cost sheet
+      if (costSheetId) {
+        await supabase
+          .from("cost_sheets")
+          .update({ quotation_no: quotationNo || null })
+          .eq("id", costSheetId);
+      }
+
       for (const item of itemsToSave) {
         // Calculate totals from all suppliers
         const totalCost = item.suppliers.reduce((sum, s) => {
@@ -588,8 +599,8 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <div className="flex gap-2 items-center">
           {userRole === "estimator" && (
             <>
               <Button onClick={addNewRow} disabled={loading}>
@@ -625,6 +636,16 @@ export const CostSheetTable = ({ clientId }: CostSheetTableProps) => {
               </Dialog>
             </>
           )}
+          <div className="flex items-center gap-2 ml-4">
+            <Label htmlFor="quotation-no" className="text-sm font-medium whitespace-nowrap">Quotation No:</Label>
+            <Input
+              id="quotation-no"
+              value={quotationNo}
+              onChange={(e) => setQuotationNo(e.target.value)}
+              placeholder="e.g. QTN-001"
+              className="h-9 w-40"
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           {items.length > 0 && (

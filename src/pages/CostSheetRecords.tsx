@@ -30,6 +30,7 @@ interface SupplierRecord {
   approval_status: string;
   created_at: string;
   revision_number: number;
+  quotation_no: string;
 }
 
 const CostSheetRecords = () => {
@@ -51,7 +52,7 @@ const CostSheetRecords = () => {
         suppliers(name),
         cost_sheet_items!inner(
           item_number, date, item, approval_status, created_at,
-          cost_sheets!inner(client_id, clients(name))
+          cost_sheets!inner(client_id, quotation_no, clients(name))
         )
       `)
       .eq("supplier_type", "product")
@@ -120,6 +121,7 @@ const CostSheetRecords = () => {
         approval_status: row.approval_status || item.approval_status || "pending",
         created_at: item.created_at || row.created_at,
         revision_number: row.revision_number || 1,
+        quotation_no: sheet?.quotation_no || "",
       };
     }).filter(Boolean) as SupplierRecord[];
 
@@ -250,6 +252,7 @@ const CostSheetRecords = () => {
             groupedByClient.map(([clientName, items]) => {
               const isOpen = expandedClients.has(clientName);
               const totalQuoted = items.reduce((s, r) => s + r.quoted_price, 0);
+              const quotationNo = items[0]?.quotation_no;
               return (
                 <Collapsible key={clientName} open={isOpen} onOpenChange={() => toggleClient(clientName)}>
                   <Card>
@@ -260,6 +263,7 @@ const CostSheetRecords = () => {
                           <Users className="h-4 w-4 text-primary" />
                           <span className="font-semibold text-lg">{clientName}</span>
                           <Badge variant="secondary" className="ml-2">{items.length} items</Badge>
+                          {quotationNo && <Badge variant="outline" className="ml-2">QTN: {quotationNo}</Badge>}
                         </div>
                         <span className="text-sm font-medium text-muted-foreground">
                           Total Quoted: <span className="text-foreground font-bold">AED {totalQuoted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
