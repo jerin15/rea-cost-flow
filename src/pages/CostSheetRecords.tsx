@@ -215,6 +215,7 @@ const CostSheetRecords = () => {
                         <TableHead className="w-32">Quoted Price</TableHead>
                         <TableHead className="w-24">Margin %</TableHead>
                         <TableHead className="w-32">Status</TableHead>
+                        <TableHead className="w-20">Rev</TableHead>
                         <TableHead className="w-40">Created</TableHead>
                       </TableRow>
                     </TableHeader>
